@@ -24,6 +24,9 @@ public struct PlanTask: Codable, Identifiable, Hashable, Sendable {
     public var brewedSeconds: Int
     /// Start of the open session while `status == .brewing`, otherwise nil.
     public var brewingSince: Date?
+    /// Keep brewing minutes added during the open session. Moves to `Session.extensionsMinutes`
+    /// when the session closes.
+    public var sessionExtensionMinutes: Int
 
     public init(
         id: UUID = UUID(),
@@ -34,7 +37,8 @@ public struct PlanTask: Codable, Identifiable, Hashable, Sendable {
         status: Status = .pending,
         extendedMinutes: Int = 0,
         brewedSeconds: Int = 0,
-        brewingSince: Date? = nil
+        brewingSince: Date? = nil,
+        sessionExtensionMinutes: Int = 0
     ) {
         self.id = id
         self.title = title
@@ -45,6 +49,7 @@ public struct PlanTask: Codable, Identifiable, Hashable, Sendable {
         self.extendedMinutes = extendedMinutes
         self.brewedSeconds = brewedSeconds
         self.brewingSince = brewingSince
+        self.sessionExtensionMinutes = sessionExtensionMinutes
     }
 
     /// Planned length of the block including extensions.
@@ -69,6 +74,7 @@ public struct PlanTask: Codable, Identifiable, Hashable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case id, title, labelID, plannedMinutes, notes, status, extendedMinutes, brewedSeconds, brewingSince
+        case sessionExtensionMinutes
     }
 
     public init(from decoder: Decoder) throws {
@@ -82,7 +88,8 @@ public struct PlanTask: Codable, Identifiable, Hashable, Sendable {
             status: container.decodeIfPresent(Status.self, forKey: .status) ?? .pending,
             extendedMinutes: container.decodeIfPresent(Int.self, forKey: .extendedMinutes) ?? 0,
             brewedSeconds: container.decodeIfPresent(Int.self, forKey: .brewedSeconds) ?? 0,
-            brewingSince: container.decodeIfPresent(Date.self, forKey: .brewingSince)
+            brewingSince: container.decodeIfPresent(Date.self, forKey: .brewingSince),
+            sessionExtensionMinutes: container.decodeIfPresent(Int.self, forKey: .sessionExtensionMinutes) ?? 0
         )
     }
 

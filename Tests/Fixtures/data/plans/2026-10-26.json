@@ -9,6 +9,7 @@
       "id" : "5D2B7C11-0F3A-4B6E-8E21-3C9A0B1E2B01",
       "labelID" : "8A0C3E52-6B0E-4C55-9C0A-2F4C1D7B1A01",
       "plannedMinutes" : 45,
+      "sessionExtensionMinutes" : 0,
       "status" : "done",
       "title" : "Write report"
     },
@@ -20,6 +21,7 @@
       "labelID" : "8A0C3E52-6B0E-4C55-9C0A-2F4C1D7B1A02",
       "notes" : "Legs day",
       "plannedMinutes" : 60,
+      "sessionExtensionMinutes" : 0,
       "status" : "brewing",
       "title" : "Gym"
     },
@@ -28,6 +30,7 @@
       "extendedMinutes" : 0,
       "id" : "5D2B7C11-0F3A-4B6E-8E21-3C9A0B1E2B03",
       "plannedMinutes" : 20,
+      "sessionExtensionMinutes" : 0,
       "status" : "pending",
       "title" : "Emails"
     }

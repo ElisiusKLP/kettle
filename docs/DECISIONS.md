@@ -111,3 +111,37 @@ Choices the spec doesn't cover, one entry each: what was chosen and why. Newest 
 ### Reorder, resize and carry-over
 **Chose:** `move(fromOffsets:toOffset:)` follows SwiftUI's `onMove` semantics. The stepper and scroll step is 5 minutes, clamped to 1...720. Carry-over moves pending and paused tasks (paused ones become pending and keep their brewed time) to the **end** of today. A task still brewing stays where it is.
 **Why:** matching `onMove` makes the popover's drag-to-reorder trivial. Appending never disturbs a day the user has already ordered. A brewing task belongs to the timer.
+
+## Step 4: TimerEngine and SteamLevel
+
+### `TimerEngine` is a value type that returns closed sessions
+**Chose:** `TimerEngine` is a struct holding today's plan, the settings, the clock and the calendar. Actions (`start`, `pause`, `toggle`, `done`, `skip`, `keepBrewing`, `editPlan`) mutate it and return any `Session`s they closed, for the caller to append to the store and the stats cache.
+**Why:** there are no callbacks or shared state to get wrong, and every behaviour is a plain function of the inputs and the fake clock.
+
+### One active task at a time
+**Chose:** at most one task is brewing or paused. Starting another task closes the open session and returns the active task to *pending*, keeping its brewed time. Plain Start (`Space`) resumes the paused task if there is one, otherwise starts the first pending task. When a plan loads, it's repaired: a "brewing" task with no `brewingSince` becomes paused, and any later active tasks become pending.
+**Why:** one active task keeps the menubar unambiguous ("the" brewing task, §5.2), and repairing on load keeps hand-edited files from confusing the timer.
+
+### Skip, Done and auto-start
+**Chose:** Skip discards the open session; earlier sessions of that task stay recorded. Skip works on the active task or any unfinished task by ID. Only Done auto-starts the next task (per §5.2); Skip doesn't.
+**Why:** this follows the spec literally. Skipping is usually a "not now", which isn't a cue to start the next block.
+
+### Keep brewing in overtime covers the overtime
+**Chose:** Keep brewing adds `minutes` plus the whole minutes already overdue, so the block runs about `minutes` more from now. Both count as extension minutes, and `plannedMinutes` keeps the original estimate.
+**Why:** after an ignored whistle (say 30 minutes overdue), "+10m" taken literally would leave the kettle whistling. Users mean "10 more minutes from now".
+
+### Extension minutes per session survive relaunches
+**Chose:** `PlanTask.sessionExtensionMinutes` tracks Keep brewing minutes added during the open session and moves into `Session.extensionsMinutes` when the session closes.
+**Why:** the open session lives in today's plan, so a relaunch mid-session must not lose its extension count.
+
+### First Start sets the day's start time
+**Chose:** the first Start on today's plan, when it has no `startTime`, sets it to the current hour and minute.
+**Why:** §4: "the first block starts at `startTime` (or when the user presses Start)". Storing it keeps derived times stable afterwards.
+
+### Tiny sessions are dropped
+**Chose:** sessions shorter than 1 second aren't recorded, and a clock that jumps backwards never adds negative time.
+**Why:** an accidental start/pause shouldn't produce noise in `sessions/`, and NTP corrections shouldn't corrupt stats.
+
+### Steam steps and states
+**Chose:** a boundary belongs to the lower step (exactly 80% left is step 4, exactly 0% is step 0). "Planned" includes Keep brewing extensions, so after an extension near the end the kettle stays at a low step instead of filling up again. Paused shows the frozen step at 50% alpha. Paused in overtime shows no steam. `IconState.allCases` has 14 states to pre-render: idle, brewing 1–5, paused 0–5, whistling, day complete.
+**Why:** this follows §6.2 literally. Whether steam should refill after Keep brewing is a design question for the icon review (step 6).
