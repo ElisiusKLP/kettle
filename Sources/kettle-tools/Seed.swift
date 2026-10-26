@@ -109,14 +109,23 @@ struct DemoGenerator {
                 task.brewedSeconds = actual
                 // One session, or two with a short break in between.
                 let split = next(3) == 0 ? actual / 2 : actual
-                sessions.append(Session(taskID: task.id, labelID: label.id, start: clock,
-                                        end: clock + TimeInterval(split), extensionsMinutes: 0))
+                sessions.append(Session(
+                    taskID: task.id,
+                    labelID: label.id,
+                    start: clock,
+                    end: clock + TimeInterval(split),
+                    extensionsMinutes: 0
+                ))
                 clock += TimeInterval(split)
                 if split < actual {
                     clock += TimeInterval(300 + next(600))
-                    sessions.append(Session(taskID: task.id, labelID: label.id, start: clock,
-                                            end: clock + TimeInterval(actual - split),
-                                            extensionsMinutes: task.extendedMinutes))
+                    sessions.append(Session(
+                        taskID: task.id,
+                        labelID: label.id,
+                        start: clock,
+                        end: clock + TimeInterval(actual - split),
+                        extensionsMinutes: task.extendedMinutes
+                    ))
                     clock += TimeInterval(actual - split)
                 } else if task.extendedMinutes > 0 {
                     sessions[sessions.count - 1].extensionsMinutes = task.extendedMinutes
