@@ -1,0 +1,12 @@
+{
+  "autoStartNext" : false,
+  "extendMinutes" : 15,
+  "launchAtLogin" : false,
+  "menubarFormat" : "iconAndTime",
+  "notifyOnFinish" : true,
+  "schemaVersion" : 1,
+  "secondaryExtendMinutes" : 5,
+  "timerPrecision" : "seconds",
+  "weekStartsOn" : "monday",
+  "whistleSound" : true
+}

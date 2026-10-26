@@ -1,0 +1,17 @@
+{
+  "labels" : [
+    {
+      "colorHex" : "#C8743A",
+      "id" : "8A0C3E52-6B0E-4C55-9C0A-2F4C1D7B1A01",
+      "isArchived" : false,
+      "name" : "work"
+    },
+    {
+      "colorHex" : "#2E8B7A",
+      "id" : "8A0C3E52-6B0E-4C55-9C0A-2F4C1D7B1A02",
+      "isArchived" : true,
+      "name" : "health"
+    }
+  ],
+  "schemaVersion" : 1
+}

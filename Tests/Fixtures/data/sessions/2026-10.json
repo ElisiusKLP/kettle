@@ -1,0 +1,20 @@
+{
+  "schemaVersion" : 1,
+  "sessions" : [
+    {
+      "end" : "2026-10-26T08:55:00Z",
+      "extensionsMinutes" : 10,
+      "id" : "C3A1E9F4-7D2B-4E8A-9B10-6F5E4D3C2A01",
+      "labelID" : "8A0C3E52-6B0E-4C55-9C0A-2F4C1D7B1A01",
+      "start" : "2026-10-26T08:00:00Z",
+      "taskID" : "5D2B7C11-0F3A-4B6E-8E21-3C9A0B1E2B01"
+    },
+    {
+      "end" : "2026-10-26T09:00:00Z",
+      "extensionsMinutes" : 0,
+      "id" : "C3A1E9F4-7D2B-4E8A-9B10-6F5E4D3C2A02",
+      "start" : "2026-10-26T08:55:00Z",
+      "taskID" : "5D2B7C11-0F3A-4B6E-8E21-3C9A0B1E2B02"
+    }
+  ]
+}

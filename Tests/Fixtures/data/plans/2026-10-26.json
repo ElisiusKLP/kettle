@@ -1,0 +1,35 @@
+{
+  "date" : "2026-10-26",
+  "schemaVersion" : 1,
+  "startTime" : "09:00",
+  "tasks" : [
+    {
+      "brewedSeconds" : 3300,
+      "extendedMinutes" : 10,
+      "id" : "5D2B7C11-0F3A-4B6E-8E21-3C9A0B1E2B01",
+      "labelID" : "8A0C3E52-6B0E-4C55-9C0A-2F4C1D7B1A01",
+      "plannedMinutes" : 45,
+      "status" : "done",
+      "title" : "Write report"
+    },
+    {
+      "brewedSeconds" : 600,
+      "brewingSince" : "2026-10-26T09:05:00Z",
+      "extendedMinutes" : 0,
+      "id" : "5D2B7C11-0F3A-4B6E-8E21-3C9A0B1E2B02",
+      "labelID" : "8A0C3E52-6B0E-4C55-9C0A-2F4C1D7B1A02",
+      "notes" : "Legs day",
+      "plannedMinutes" : 60,
+      "status" : "brewing",
+      "title" : "Gym"
+    },
+    {
+      "brewedSeconds" : 0,
+      "extendedMinutes" : 0,
+      "id" : "5D2B7C11-0F3A-4B6E-8E21-3C9A0B1E2B03",
+      "plannedMinutes" : 20,
+      "status" : "pending",
+      "title" : "Emails"
+    }
+  ]
+}

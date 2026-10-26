@@ -3,10 +3,12 @@ SHELL := /bin/bash
 
 # The Command Line Tools ship Swift Testing outside SwiftPM's default search path,
 # so point the compiler and linker at it when CLT (not full Xcode) is the active toolchain.
+# CLT also ships the Testing+Foundation cross-import overlay without its module, so it's disabled.
 CLT_DIR := /Library/Developer/CommandLineTools
 CLT_FRAMEWORKS := $(CLT_DIR)/Library/Developer/Frameworks
 ifeq ($(shell xcode-select -p 2>/dev/null),$(CLT_DIR))
-TEST_FLAGS := -Xswiftc -F$(CLT_FRAMEWORKS) -Xlinker -rpath -Xlinker $(CLT_FRAMEWORKS)
+TEST_FLAGS := -Xswiftc -F$(CLT_FRAMEWORKS) -Xswiftc -Xfrontend -Xswiftc -disable-cross-import-overlays \
+	-Xlinker -rpath -Xlinker $(CLT_FRAMEWORKS)
 # SwiftLint looks for sourcekitdInProc in Xcode; under CLT it lives in $(CLT_DIR)/usr/lib.
 SWIFTLINT_ENV := TOOLCHAIN_DIR=$(CLT_DIR)
 endif
