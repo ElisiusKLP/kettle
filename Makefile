@@ -66,7 +66,7 @@ logs:
 	log stream --predicate 'subsystem == "io.github.kettle"'
 
 memcheck:
-	@echo "make memcheck: lands in build step 8 (scripts/memcheck.sh)"; exit 1
+	@scripts/memcheck.sh
 
 profile:
 	@echo "make profile: lands in build step 14"; exit 1

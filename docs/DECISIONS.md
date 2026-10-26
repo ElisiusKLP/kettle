@@ -237,3 +237,37 @@ Choices the spec doesn't cover, one entry each: what was chosen and why. Newest 
 ### Temporary status menu
 **Chose:** until the popover (step 9), clicking the kettle opens a menu with Start/Pause/Resume, Done, Keep brewing, Skip, "Add 2-minute test task" and Quit. The menu is rebuilt only when it opens.
 **Why:** it makes `make dev` testable end to end now, and step 8's memcheck needs a running timer.
+
+## Step 8: memcheck
+
+### `make memcheck` measures a throwaway folder, in both precisions
+**Chose:** `scripts/memcheck.sh` runs `make test-release` (zero-allocation ticking), builds the release Kettle Dev, seeds `build/memcheck/data` (via `KETTLE_DATA_DIR`) with today's first task already brewing, then launches and measures:
+- Footprint: `footprint -f bytes`, falling back to `ps -o rss=`.
+- Average CPU: CPU time used over the window ÷ wall time.
+- Idle wake-ups: the change in `top`'s cumulative `IDLEW`.
+
+Seconds mode runs twice for 30 s each, after a 10 s settle, and the lower-CPU run counts. Minutes mode runs once for 120 s. The report is saved to `build/memcheck/report.txt`.
+**Why:**
+- A throwaway folder never touches your dev data.
+- Seeding a brewing task avoids UI automation.
+- §8 has separate wake-up budgets per precision, so both are measured.
+- A 30 s window can't resolve a "≤ 1 per minute" budget.
+- CPU readings are noisy right after a build and seeding.
+
+### `make seed` arrives early
+**Chose:** `kettle-tools seed [--brewing]` was built in step 8, not 13, because memcheck needs it. It writes deterministic demo data (6 labels, one archived; 14 past days with sessions; today; tomorrow) into the dev folder or `KETTLE_DATA_DIR`, rebuilds the stats cache, and refuses to write into a folder that already has data.
+**Why:** memcheck must "seed data" (§10), and refusing to overwrite protects whatever is in the dev folder.
+
+### OPEN: seconds-mode CPU budget
+**Found:** footprint is well within budget (11–16 MB of 25 MB). But **any visible change to an `NSStatusItem` once a second costs about 0.35–0.45% CPU** in the release build:
+
+| Release build, 20 s windows | CPU |
+|---|---|
+| Seconds countdown | 0.45% |
+| Icon only, timer still ticking every second | 0.05% |
+| Swapping two cached images every second, no title | 0.35% |
+| Fixed-length item instead of variable length | 0.45% (no change) |
+| Updates wrapped in a `CATransaction` with actions disabled | 2.8% (worse) |
+| Minutes mode | 0.00% |
+
+Our own tick allocates nothing and is negligible; the cost is AppKit rendering and committing the status item. The §8 budget of < 0.1% average CPU can't be met with a per-second countdown. Under §8 ("it stays out of v1 or becomes opt-in"), a decision is needed. Until then `make memcheck` fails on seconds-mode CPU. Minutes-mode readings were also noisy (0.00% / 0 extra wake-ups in one run; 0.33% / 16 per minute in another), which suggests the menubar sometimes asks every status item to redraw. That needs a measurement on an otherwise idle machine.
