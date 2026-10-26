@@ -43,3 +43,7 @@ Choices the spec doesn't cover, one entry each: what was chosen and why. Newest 
 ### Licence holder
 **Chose:** "Copyright (c) 2026 Kettle contributors".
 **Why:** the spec doesn't name a holder, and this is the usual choice for community projects. It's easy to change.
+
+### `make test FILTER=…` and test naming
+**Chose:** `make test` takes an optional `FILTER` (passed to `swift test --filter`), and DEVELOPMENT.md uses it instead of bare `swift test --filter`. Test functions follow the Swift Testing style, without a `test` prefix (`SteamLevelTests/stepBoundaries`).
+**Why:** a bare `swift test` runs zero tests on a CLT-only machine (see above), and Swift Testing identifies tests by their `@Test` attribute, not by name.

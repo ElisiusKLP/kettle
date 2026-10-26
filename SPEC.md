@@ -20,7 +20,7 @@ Principles, in priority order:
 | Item | Choice |
 |---|---|
 | OS | macOS 14 Sonoma or later |
-| Language | Swift 5.10+ |
+| Language | Swift 6 toolchain (Swift 5 language mode, `swift-tools-version: 5.10`) |
 | Menubar | **AppKit** `NSStatusItem` + `NSPopover`. Do not use SwiftUI `MenuBarExtra`, because it keeps its content view alive and gives no control over teardown. |
 | Views | SwiftUI, hosted in `NSHostingController` and **created on demand and destroyed on close** |
 | Build | Swift Package Manager (no `.xcodeproj` checked in) plus a bundling script that produces a `.app` |
@@ -303,7 +303,8 @@ If a feature can't fit these budgets, it stays out of v1 or becomes opt-in, and 
   - `DailyTotalsCacheTests`: incremental updates match a full rebuild.
   - `JSONStoreTests`: round trip, atomic writes, migrations, and confirmation that only today's plan is loaded at startup.
   - `KettleIconTests`: every state renders at 18 pt, is a template image (except in dev), and uses non-empty alpha for its steam step.
-  - `PerformanceTests`: aggregating 1 year of daily totals takes < 20 ms (`measure {}`), and steady-state ticking performs no heap allocations.
+  - `PerformanceTests`: aggregating 1 year of daily totals takes < 20 ms (timed with `ContinuousClock`), and steady-state ticking performs no heap allocations.
+- Tests use Swift Testing (`import Testing`), which works with both the Command Line Tools and Xcode 16+. XCTest isn't available in the Command Line Tools.
 - CI (GitHub Actions, `macos-14` runner) runs `make lint` and `make test` on every push and PR. `make memcheck` runs locally before each release, since it needs a GUI session.
 
 ## 12. Build order for the agent

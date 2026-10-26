@@ -22,8 +22,9 @@ bootstrap:
 build:
 	swift build
 
+# FILTER runs one suite or test, e.g. make test FILTER=TimerEngineTests
 test:
-	swift test --parallel $(TEST_FLAGS)
+	swift test --parallel $(if $(FILTER),--filter '$(FILTER)') $(TEST_FLAGS)
 
 coverage:
 	@scripts/coverage.sh $(TEST_FLAGS)

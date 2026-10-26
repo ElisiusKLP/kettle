@@ -5,7 +5,7 @@ This guide gets you from a fresh clone to running tests, a safe dev instance of 
 ## Requirements
 
 - macOS 14 or later
-- Xcode 15.3 or later, or the Xcode Command Line Tools (`xcode-select --install`). Instruments (for `make profile`) needs full Xcode.
+- Xcode 16 or later, or the Xcode Command Line Tools with Swift 6 (`xcode-select --install`). Instruments (for `make profile`) needs full Xcode.
 - Homebrew (optional, used to install the linters)
 
 ## First-time setup (run once, in this order)
@@ -32,9 +32,11 @@ Run steps 1–3 before every commit, since CI runs the same `make lint` and `mak
 To run a single test suite or test:
 
 ```bash
-swift test --filter TimerEngineTests
-swift test --filter SteamLevelTests/testStepBoundaries
+make test FILTER=TimerEngineTests
+make test FILTER=SteamLevelTests/stepBoundaries
 ```
+
+Tests use Swift Testing. Use `make test` rather than a bare `swift test`: with only the Command Line Tools installed, `make test` adds the framework path that SwiftPM needs to find Swift Testing, and without it no tests run.
 
 To check coverage (the target is at least 85% for KettleCore):
 
@@ -73,7 +75,7 @@ The menubar icon is drawn in code (`Sources/KettleIcon`), not stored as image fi
 ```bash
 make icons          # 1. render every state to build/icons/preview.png
 open build/icons/preview.png   # 2. review in light and dark, at 1× and 2×
-swift test --filter KettleIconTests   # 3. check sizes, template flag, and alpha
+make test FILTER=KettleIconTests     # 3. check sizes, template flag, and alpha
 make appicon        # 4. only if you changed the shapes: regenerate AppIcon.icns
 ```
 
