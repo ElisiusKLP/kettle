@@ -89,3 +89,25 @@ Choices the spec doesn't cover, one entry each: what was chosen and why. Newest 
 ### CLT: cross-import overlays disabled for tests
 **Chose:** on CLT, `make test` also passes `-disable-cross-import-overlays`.
 **Why:** CLT ships `_Testing_Foundation.framework` without its Swift module, so any test file that imports both Testing and Foundation fails to compile. The overlay only adds Foundation-specific extras to Swift Testing that we don't use. With full Xcode the flag isn't passed.
+
+## Step 3: QuickAddParser and PlanEngine
+
+### Quick add: where the duration and label go
+**Chose:** the duration must be the **last word** once the label is removed (`Write report 45m #work` and `Write report #work 45m` both work). A label is `#` followed by a letter, then letters, digits, `-` or `_`. If there are several, the last one is the label and the rest stay in the title. Units are case-insensitive, `1h30` means 90 minutes, and whitespace is collapsed.
+**Why:** this lets "Read 2 chapters" keep its number, and "Review PR #42 #work" keep `#42` in the title. The catch is that a title ending in a bare number, like "Call 911", reads as a duration; adding an explicit duration fixes it ("Call 911 5m").
+
+### Quick add: default duration and invalid input
+**Chose:** without a duration the task gets 30 minutes. Durations outside 1...720 minutes, including zero and numbers too big for `Int`, throw `durationOutOfRange`. A line with no title left throws `emptyTitle`.
+**Why:** a default keeps "Emails" one keystroke away. Quietly clamping "Tea 13h" to 12 h would surprise the user, so it's an error the UI can show.
+
+### Quick add: label matching
+**Chose:** label names match existing labels ignoring case. Quick-adding an archived label unarchives it. A new label gets the first unused colour from an 8-colour palette (`Label.palette`).
+**Why:** `#Work` and `#work` should be the same thing, and typing an archived label shows the user wants it back.
+
+### Derived times are live for today
+**Chose:** `PlanEngine.schedule` lays blocks out from an anchor: `startTime` if set, otherwise now for today, otherwise no times. Done blocks take their actual brewed time and skipped blocks take none. With `now` supplied (today's plan), the brewing or paused block ends at now + remaining (or now, in overtime), and pending blocks never start in the past.
+**Why:** finishing early, pausing or falling behind then moves the rest of the day automatically, so the times shown are always reachable. The timer (step 4) will set `startTime` the first time Start is pressed on a day without one, as §4 describes.
+
+### Reorder, resize and carry-over
+**Chose:** `move(fromOffsets:toOffset:)` follows SwiftUI's `onMove` semantics. The stepper and scroll step is 5 minutes, clamped to 1...720. Carry-over moves pending and paused tasks (paused ones become pending and keep their brewed time) to the **end** of today. A task still brewing stays where it is.
+**Why:** matching `onMove` makes the popover's drag-to-reorder trivial. Appending never disturbs a day the user has already ordered. A brewing task belongs to the timer.

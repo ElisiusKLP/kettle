@@ -52,6 +52,21 @@ public struct PlanTask: Codable, Identifiable, Hashable, Sendable {
         plannedMinutes + extendedMinutes
     }
 
+    /// Brewing time so far, including the open session if brewing.
+    public func brewedSeconds(at now: Date) -> TimeInterval {
+        guard status == .brewing, let brewingSince else { return TimeInterval(brewedSeconds) }
+        return TimeInterval(brewedSeconds) + max(0, now.timeIntervalSince(brewingSince))
+    }
+
+    /// Seconds left in the block at `now`. Negative in overtime.
+    public func remainingSeconds(at now: Date) -> TimeInterval {
+        TimeInterval(totalMinutes * 60) - brewedSeconds(at: now)
+    }
+
+    public var isFinished: Bool {
+        status == .done || status == .skipped
+    }
+
     private enum CodingKeys: String, CodingKey {
         case id, title, labelID, plannedMinutes, notes, status, extendedMinutes, brewedSeconds, brewingSince
     }
