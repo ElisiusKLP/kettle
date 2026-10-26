@@ -14,5 +14,6 @@ let package = Package(
         .executableTarget(name: "KettleApp", dependencies: ["KettleCore", "KettleIcon"]),
         .executableTarget(name: "kettle-tools", dependencies: ["KettleCore", "KettleIcon"]),
         .testTarget(name: "KettleCoreTests", dependencies: ["KettleCore"]),
+        .testTarget(name: "KettleIconTests", dependencies: ["KettleIcon", "KettleCore"]),
     ]
 )

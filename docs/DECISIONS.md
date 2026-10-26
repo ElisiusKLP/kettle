@@ -177,3 +177,29 @@ Choices the spec doesn't cover, one entry each: what was chosen and why. Newest 
 ### `PerformanceTests` timing and the allocation test
 **Chose:** the 20 ms aggregation limit is checked against the fastest of 10 runs, measured with `ContinuousClock`. The "steady-state ticking performs no heap allocations" test comes in step 7, with the menubar tick code it tests.
 **Why:** taking the best run avoids flaky failures from scheduler noise. The tick code (countdown formatting and icon-state comparison) doesn't exist until the app shell does.
+
+## Step 6: KettleIcon
+
+### One drawing, many outputs
+**Chose:** `KettleDrawing` draws the kettle as CoreGraphics paths in an 18 × 18 unit space (y up), taking separate body and steam colours and an optional rotation. `KettleIcon` wraps it in `NSImage(size:flipped:drawingHandler:)` for the menubar: black template or orange dev. `make appicon` will reuse the same paths at 1024 px.
+**Why:** one set of paths keeps the menubar icon and the app icon identical in shape (§6.5), and vector drawing stays sharp at any scale.
+
+### Shape details
+**Chose:** a bell-shaped pot outline (1.5 pt stroke, sitting on the baseline), an arched handle, a filled lid knob, and a curved spout ending at (15, 8). The steam is three S-shaped wisps (1.2 pt) above the spout, each a different height. The "outermost" wisp is the rightmost, farthest from the body, and it fades first. Whistling makes each wisp about 12% taller and adds two short lines to the right of the spout. Day complete draws a **check mark** on the body (the spec allowed a heart or a check).
+**Why:** a check stays crisp at 18 pt where a heart turns into a blob. Fading the wisp farthest from the kettle first reads as the steam "pulling back".
+
+### Paused dims everything
+**Chose:** in the paused state, the whole icon (outline and steam) is drawn at 50% alpha as one transparency layer.
+**Why:** the spec dims the outline. Leaving the steam at full strength next to a dimmed kettle looked like a rendering bug, and drawing as one layer stops overlapping strokes from darkening.
+
+### Images are built once, drawn lazily
+**Chose:** `KettleIcon.allImages(style:)` builds all 14 `NSImage`s once at launch. Each is vector-backed (drawing handler), and AppKit caches the rasterised result per resolution.
+**Why:** this follows §6.1 and §6.4 (no bitmap assets, no redraw on tick). There are 14 states rather than "about 10" because paused keeps its frozen step (0–5).
+
+### Wiggle is a rotation
+**Chose:** `image(for:style:rotation:)` rotates the drawing around the middle of the kettle's base. The app (step 11) will show a few pre-built tilted whistling frames once.
+**Why:** a few rotated frames are cheap, and nothing animates continuously.
+
+### Preview sheet and pixel tests
+**Chose:** `make icons` renders each state on simulated light and dark menubars at 1× and 2×, plus the dev style and 4× nearest-neighbour zooms of the 2× rendering. `KettleIconTests` rasterises at 2× and checks the size, the template flag, black-only pixels, dev orange, steam alpha per step (strictly increasing), no steam in steam-free states, paused at about half alpha with the step frozen, and that all 14 states differ.
+**Why:** the preview is for human review, and the pixel tests stop later edits from silently breaking the states.
