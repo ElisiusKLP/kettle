@@ -27,6 +27,12 @@ public protocol Store: AnyObject {
     func loadSessions(monthOf date: LocalDate) throws -> [Session]
     /// Appends to the month file of the session's start day.
     func appendSession(_ session: Session) throws
+    func loadDailyTotals() throws -> DailyTotals
+    func saveDailyTotals(_ totals: DailyTotals)
+    /// Days that have a plan file, oldest first. Only for export and cache rebuilds.
+    func planDates() throws -> [LocalDate]
+    /// The first day of every month that has a sessions file, oldest first.
+    func sessionMonths() throws -> [LocalDate]
     func flush() throws
 }
 

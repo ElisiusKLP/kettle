@@ -58,6 +58,25 @@ public struct LocalDate: Hashable, Comparable, Sendable, Codable, CustomStringCo
         LocalDate(dayNumber: dayNumber + days)
     }
 
+    /// `Calendar` weekday numbering: Sunday is 1, Saturday is 7.
+    public var weekday: Int {
+        // 1970-01-01 was a Thursday (5).
+        ((dayNumber + 4) % 7 + 7) % 7 + 1
+    }
+
+    /// The first day of the week containing this date.
+    public func startOfWeek(startingOn first: Weekday) -> LocalDate {
+        adding(days: -((weekday - first.calendarWeekday + 7) % 7))
+    }
+
+    public var startOfMonth: LocalDate {
+        LocalDate(dayNumber: dayNumber - (day - 1))
+    }
+
+    public var endOfMonth: LocalDate {
+        adding(days: Self.daysInMonth(year: year, month: month) - day)
+    }
+
     /// `yyyy-MM`, used to name monthly session files.
     public var monthKey: String {
         String(format: "%04d-%02d", year, month)

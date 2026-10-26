@@ -90,6 +90,10 @@ final class RecordingFileSystem: FileSystem {
         return try base.contents(of: url)
     }
 
+    func fileNames(in folder: URL) throws -> [String] {
+        try base.fileNames(in: folder)
+    }
+
     func writeAtomically(_ data: Data, to url: URL) throws {
         if failWrites {
             throw POSIXError(.ENOSPC)

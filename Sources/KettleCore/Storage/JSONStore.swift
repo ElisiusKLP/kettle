@@ -94,6 +94,22 @@ public final class JSONStore: Store {
         enqueue(log, at: path)
     }
 
+    public func loadDailyTotals() throws -> DailyTotals {
+        try load(DailyTotals.self, at: StorePath.dailyTotals) ?? DailyTotals()
+    }
+
+    public func saveDailyTotals(_ totals: DailyTotals) {
+        enqueue(totals, at: StorePath.dailyTotals)
+    }
+
+    public func planDates() throws -> [LocalDate] {
+        try datedFiles(in: "plans").compactMap(LocalDate.init)
+    }
+
+    public func sessionMonths() throws -> [LocalDate] {
+        try datedFiles(in: "sessions").compactMap { LocalDate($0 + "-01") }
+    }
+
     public func flush() throws {
         flushScheduled = false
         var firstError: Error?
@@ -117,6 +133,15 @@ public final class JSONStore: Store {
 
     private func url(for path: String) -> URL {
         directory.appendingPathComponent(path, isDirectory: false)
+    }
+
+    /// Base names of the `.json` files in `folder`, including ones not yet written, sorted.
+    private func datedFiles(in folder: String) throws -> [String] {
+        let onDisk = try fileSystem.fileNames(in: url(for: folder))
+        let pendingNames = pending.keys.filter { $0.hasPrefix(folder + "/") }
+            .map { String($0.dropFirst(folder.count + 1)) }
+        let names = Set(onDisk + pendingNames).filter { $0.hasSuffix(".json") }.map { String($0.dropLast(5)) }
+        return names.sorted()
     }
 
     private func load<T: StoredDocument>(_: T.Type, at path: String) throws -> T? {

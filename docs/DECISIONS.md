@@ -145,3 +145,35 @@ Choices the spec doesn't cover, one entry each: what was chosen and why. Newest 
 ### Steam steps and states
 **Chose:** a boundary belongs to the lower step (exactly 80% left is step 4, exactly 0% is step 0). "Planned" includes Keep brewing extensions, so after an extension near the end the kettle stays at a low step instead of filling up again. Paused shows the frozen step at 50% alpha. Paused in overtime shows no steam. `IconState.allCases` has 14 states to pre-render: idle, brewing 1–5, paused 0–5, whistling, day complete.
 **Why:** this follows §6.2 literally. Whether steam should refill after Keep brewing is a design question for the icon review (step 6).
+
+## Step 5: StatsCalculator and DailyTotalsCache
+
+### Two kinds of figures in `daily-totals.json`
+**Chose:** each day/label entry holds:
+- *Session figures*: `seconds` of actual brewing (split at local midnight) and `sessions` (counted on their start day). These are **added** as each session closes.
+- *Plan figures*: for tasks marked done, `tasksDone`, `plannedMinutes` (original estimate), `doneSeconds` (actual time brewed on them), `tasksExtended` and `extendedMinutes`. These are **recomputed** for the plan's day whenever its plan is recorded.
+**Why:** "time per label" should count all real work, including on skipped or unfinished tasks. "Planned vs. actual" is only meaningful for completed tasks. Recomputing plan figures makes them idempotent, so edits, relabelling and repeated saves never double-count. A test checks that incremental updates match a full rebuild over 60 randomised days.
+
+### Seconds, not minutes, in the cache
+**Chose:** brewing time is stored as whole seconds.
+**Why:** summing per-session minutes would lose up to a minute per session. Seconds are still small integers, and the UI shows minutes.
+
+### Extension stats come from plans
+**Chose:** "how often tasks were extended" uses the done tasks' `extendedMinutes` from the plan, not `Session.extensionsMinutes`.
+**Why:** a task is either extended or not, whatever the number of sessions, so counting per task is what the stats need. `Session.extensionsMinutes` is still recorded for export.
+
+### Cache file format
+**Chose:** `{"days": {"yyyy-MM-dd": {"<label UUID>" or "none": {...}}}, "schemaVersion": 1}`. In memory the keys are `LocalDate` and `UUID?`, and invalid keys make the file unreadable, which protects it from being overwritten.
+**Why:** it's readable and diff-friendly, and aggregation does one dictionary lookup per day (a year takes about 1 ms in a debug build).
+
+### Stats rows
+**Chose:** rows are sorted by brewing time; ties go by label name, then "No label", then labels that no longer exist (shown as unknown, never dropped). Archived labels appear with their name and colour.
+**Why:** this keeps the history intact after archiving or deleting labels (§5.3).
+
+### Week and month ranges
+**Chose:** "This week" is the 7 days starting on `weekStartsOn` that contain today. "This month" is the whole calendar month. Weekday maths uses `LocalDate` day numbers.
+**Why:** this matches what calendars show, and the ranges include future days, so the chart has a stable width.
+
+### `PerformanceTests` timing and the allocation test
+**Chose:** the 20 ms aggregation limit is checked against the fastest of 10 runs, measured with `ContinuousClock`. The "steady-state ticking performs no heap allocations" test comes in step 7, with the menubar tick code it tests.
+**Why:** taking the best run avoids flaky failures from scheduler noise. The tick code (countdown formatting and icon-state comparison) doesn't exist until the app shell does.
