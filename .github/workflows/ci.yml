@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-lint:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      # Tests use Swift Testing, which needs the Swift 6 toolchain from Xcode 16.
+      - name: Select Xcode 16
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
+
+      - name: Bootstrap
+        run: make bootstrap
+
+      - name: Lint (SwiftFormat, SwiftLint, no-network check)
+        run: make lint
+
+      - name: Build
+        run: make build
+
+      - name: Test
+        run: make test
