@@ -6,7 +6,8 @@ public enum DataLocation {
     public static let folderName = "Kettle"
     public static let devFolderName = "Kettle-Dev"
 
-    /// In priority order: `KETTLE_DATA_DIR`, then the dev bundle's `Kettle-Dev` folder, then `Kettle`.
+    /// In priority order: `KETTLE_DATA_DIR`, then `Kettle-Dev` for the dev bundle (and for an
+    /// unbundled binary, e.g. `swift run`, which is always a development run), then `Kettle`.
     /// `applicationSupport` is the app's Application Support folder (inside the container when sandboxed).
     public static func resolve(
         environment: [String: String],
@@ -17,7 +18,8 @@ public enum DataLocation {
             let path = (override as NSString).expandingTildeInPath
             return URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
         }
-        let name = bundleIdentifier == Kettle.devBundleID ? devFolderName : folderName
+        let isDevelopment = bundleIdentifier == nil || bundleIdentifier == Kettle.devBundleID
+        let name = isDevelopment ? devFolderName : folderName
         return applicationSupport.appendingPathComponent(name, isDirectory: true)
     }
 

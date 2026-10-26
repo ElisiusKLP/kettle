@@ -16,7 +16,7 @@ endif
 VERSION = $(shell /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
 DEV_APP := build/Kettle Dev.app
 
-.PHONY: bootstrap build test coverage lint format icons appicon dev seed reset-dev logs memcheck profile release clean
+.PHONY: bootstrap build test test-release coverage lint format icons appicon dev seed reset-dev logs memcheck profile release clean
 
 bootstrap:
 	@scripts/bootstrap.sh
@@ -27,6 +27,10 @@ build:
 # FILTER runs one suite or test, e.g. make test FILTER=TimerEngineTests
 test:
 	swift test --parallel $(if $(FILTER),--filter '$(FILTER)') $(TEST_FLAGS)
+
+# The performance tests against optimised code (zero-allocation ticking needs -O).
+test-release:
+	swift test -c release -Xswiftc -enable-testing --filter PerformanceTests $(TEST_FLAGS)
 
 coverage:
 	@scripts/coverage.sh $(TEST_FLAGS)

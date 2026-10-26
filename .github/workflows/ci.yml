@@ -28,3 +28,6 @@ jobs:
 
       - name: Test
         run: make test
+
+      - name: Performance tests (optimised build)
+        run: make test-release

@@ -203,3 +203,37 @@ Choices the spec doesn't cover, one entry each: what was chosen and why. Newest 
 ### Preview sheet and pixel tests
 **Chose:** `make icons` renders each state on simulated light and dark menubars at 1× and 2×, plus the dev style and 4× nearest-neighbour zooms of the 2× rendering. `KettleIconTests` rasterises at 2× and checks the size, the template flag, black-only pixels, dev orange, steam alpha per step (strictly increasing), no steam in steam-free states, paused at about half alpha with the step frozen, and that all 14 states differ.
 **Why:** the preview is for human review, and the pixel tests stop later edits from silently breaking the states.
+
+## Step 7: App shell
+
+### `KettleModel` keeps the app target thin
+**Chose:** a `KettleModel` class in KettleCore owns today's `TimerEngine`, labels and settings. After each action it saves the plan, appends closed sessions, updates the stats cache, and switches to the new day when idle. The app only connects it to AppKit.
+**Why:** the order of saves and cache updates is logic, so it lives in KettleCore with tests (CLAUDE.md: "Logic goes in KettleCore").
+
+### Ticks align to the countdown, not the wall clock
+**Chose:** the single one-shot `DispatchSourceTimer` is re-armed for when the *displayed* value next changes: the next whole second (or minute) of the remaining or overdue time, plus 5 ms. Leeway is 200 ms (seconds mode) or 5 s (minutes mode). When nothing is brewing, the only timer is one at the next local midnight, to switch days. Paused doesn't tick.
+**Why:** the block rarely starts on a wall-clock second. Aligning to the countdown's own boundaries changes the title exactly once per second or minute, and never wakes up for nothing. In minutes mode, a steam step can change up to a minute late, which is fine at that precision.
+
+### Sleep and screens off stop ticking
+**Chose:** ticking stops on `willSleep` and on `screensDidSleep` (and pending writes are flushed). It resumes, recomputing everything from timestamps, only when both the system and the screens are awake.
+**Why:** nobody sees the menubar with the screens off. The whistle notification (step 11) will be scheduled ahead with UserNotifications, so it doesn't depend on ticking.
+
+### Countdown format
+**Chose:** in seconds mode, `23:41`, `1:02:03` and in overtime `+00:42`. In minutes mode, `24m`, `1h 05m` and `+3m`. The countdown rounds up and overtime counts up from `+00:00`, capped at 99:59:59. The title uses a monospaced-digit font so it doesn't jitter.
+**Why:** the display reaches zero exactly at the whistle, and in minutes mode `h`/`m` avoid confusing `1:05` (hours) with `1:05` (minutes and seconds).
+
+### Zero allocations, checked on optimised code
+**Chose:** `steadyStateTickingDoesNotAllocate` counts heap allocations on the test's own thread with libmalloc's `malloc_logger` hook, over 3,000 ticks (every steam step and into overtime). It only runs in optimised builds, via a new `make test-release` (also a CI step, and `make memcheck` will run it). In `make test` it shows as skipped, with the reason.
+**Why:** unoptimised code allocates inside unspecialised generic calls, such as the `firstIndex(where:)` closure call. That isn't what ships. The release build allocates 0. The countdown formatter writes ASCII into a ≤15-byte small string with static `inout` helpers, rather than nested functions that box their captures.
+
+### Unbundled runs use the dev folder
+**Chose:** with no bundle identifier (e.g. `swift run Kettle`), `DataLocation` uses `Kettle-Dev`.
+**Why:** anything that isn't the release bundle is a development run and must never share a folder name with real data.
+
+### Unreadable data stops the app with an explanation
+**Chose:** if today's plan, settings or labels can't be read at launch, Kettle shows an alert ("Nothing has been changed…") with Quit and Reveal Data Folder, then quits.
+**Why:** running on defaults could later overwrite the user's data. `JSONStore` refuses to overwrite unreadable files anyway, but an app with a silently empty day would be confusing.
+
+### Temporary status menu
+**Chose:** until the popover (step 9), clicking the kettle opens a menu with Start/Pause/Resume, Done, Keep brewing, Skip, "Add 2-minute test task" and Quit. The menu is rebuilt only when it opens.
+**Why:** it makes `make dev` testable end to end now, and step 8's memcheck needs a running timer.

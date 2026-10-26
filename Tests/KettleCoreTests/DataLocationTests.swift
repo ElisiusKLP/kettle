@@ -37,7 +37,12 @@ struct DataLocationTests {
         #expect(url.path == "/Users/test/Library/Application Support/Kettle-Dev")
     }
 
-    @Test(arguments: [Kettle.bundleID, nil, "com.example.other"])
+    @Test func unbundledRunsUseTheDevFolder() {
+        let url = DataLocation.resolve(environment: [:], bundleIdentifier: nil, applicationSupport: support)
+        #expect(url.path == "/Users/test/Library/Application Support/Kettle-Dev")
+    }
+
+    @Test(arguments: [Kettle.bundleID, "com.example.other"])
     func everythingElseUsesTheDefaultFolder(bundleIdentifier: String?) {
         let url = DataLocation.resolve(
             environment: [:],

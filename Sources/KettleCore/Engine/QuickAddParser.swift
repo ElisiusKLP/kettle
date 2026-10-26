@@ -6,6 +6,12 @@ public struct QuickAddEntry: Equatable, Sendable {
     public var minutes: Int
     /// The label name without `#`, as typed. Nil if the line has no label.
     public var labelName: String?
+
+    public init(title: String, minutes: Int, labelName: String?) {
+        self.title = title
+        self.minutes = minutes
+        self.labelName = labelName
+    }
 }
 
 public enum QuickAddError: Error, Equatable {
