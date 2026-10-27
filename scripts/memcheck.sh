@@ -131,7 +131,7 @@ report=$(echo "$results" | awk -v mb="$budget_footprint_mb" -v cpu="$budget_cpu_
         row("Idle wake-ups (smart, median slice)", wake_median, "/min", "<=", 1, wake_median <= 1)
         row("Idle footprint (seconds)", seconds_footprint, "MB", "<=", mb, seconds_footprint <= mb)
         # Opt-in: redrawing the menubar every second costs ~0.4% CPU (SPEC section 8).
-        printf "%-40s %9.3f %-5s (opt-in, not budgeted)\n", "Average CPU (seconds)", seconds_cpu, "%"
+        printf "%-40s %9.3f %-5s (default; not budgeted)\n", "Average CPU (seconds)", seconds_cpu, "%"
         row("Idle wake-ups (seconds)", seconds_wake, "/s", "<=", 1, seconds_wake <= 1)
         exit failed
     }') && status=0 || status=$?
