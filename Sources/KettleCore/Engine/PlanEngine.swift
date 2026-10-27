@@ -9,24 +9,40 @@ public struct ScheduledBlock: Equatable, Sendable {
 
 /// Pure operations on a day plan: derived times, editing, reordering and carry-over.
 public enum PlanEngine {
+    /// Where a day without a start time begins in the calendar, and on other days than today
+    /// once a block has been dragged to a time.
+    public static let defaultDayStart = LocalTime(hour: 9, minute: 0)!
+
     // MARK: Derived times
 
     /// When the plan's first block starts: its `startTime` on its day, otherwise now if the
-    /// plan is today's, otherwise nil (no times are shown).
+    /// plan is today's. On other days it's nil (no times are shown) unless a block has a fixed
+    /// start, in which case blocks start at `defaultDayStart` or that block, if earlier.
     public static func anchor(for plan: DayPlan, today: LocalDate, now: Date, calendar: Calendar) -> Date? {
         if let startTime = plan.startTime {
             return plan.date.date(at: startTime, in: calendar)
         }
-        return plan.date == today ? now : nil
+        if plan.date == today {
+            return now
+        }
+        guard let earliest = plan.tasks.compactMap(\.fixedStart).min() else { return nil }
+        return plan.date.date(at: min(earliest, defaultDayStart), in: calendar)
     }
 
-    /// Lays the blocks out back to back from `anchor`.
+    /// Lays the blocks out back to back from `anchor`. A block with a fixed start starts no
+    /// earlier than that time, which can leave a gap before it.
     ///
     /// Done blocks take the time actually brewed, skipped blocks take none, and every other
     /// block takes its planned minutes plus extensions. Pass `now` for today's plan to make the
-    /// schedule live: the brewing or paused block then ends at `now` plus its remaining time,
-    /// and pending blocks never start in the past. Pass nil for other days.
-    public static func schedule(for plan: DayPlan, from anchor: Date, now: Date?) -> [ScheduledBlock] {
+    /// schedule live: the brewing or paused block then ends at `now` plus its remaining time
+    /// (so a pause pushes its end, and everything after it, later), and pending blocks never
+    /// start in the past. Pass nil for other days.
+    public static func schedule(
+        for plan: DayPlan,
+        from anchor: Date,
+        now: Date?,
+        calendar: Calendar
+    ) -> [ScheduledBlock] {
         var cursor = anchor
         var blocks: [ScheduledBlock] = []
         blocks.reserveCapacity(plan.tasks.count)
@@ -34,6 +50,9 @@ public enum PlanEngine {
         for task in plan.tasks {
             let planned = TimeInterval(task.totalMinutes * 60)
             var start = cursor
+            if let fixedStart = task.fixedStart {
+                start = max(start, plan.date.date(at: fixedStart, in: calendar))
+            }
             let end: Date
             switch task.status {
             case .done:
@@ -96,12 +115,19 @@ public enum PlanEngine {
     }
 
     /// Moves the tasks at `source` to before the task at `destination`, using the same
-    /// semantics as SwiftUI's `onMove`. Invalid offsets are ignored.
+    /// semantics as SwiftUI's `onMove`. Invalid offsets are ignored. Moved pending tasks lose
+    /// their fixed start, so they follow the task before them in the new order.
     public static func move(in plan: inout DayPlan, fromOffsets source: IndexSet, toOffset destination: Int) {
         let source = source.filteredIndexSet { plan.tasks.indices.contains($0) }
         guard !source.isEmpty else { return }
         let destination = min(max(destination, 0), plan.tasks.count)
-        let moving = source.map { plan.tasks[$0] }
+        let moving = source.map { index in
+            var task = plan.tasks[index]
+            if task.status == .pending {
+                task.fixedStart = nil
+            }
+            return task
+        }
         var remaining = plan.tasks.enumerated().filter { !source.contains($0.offset) }.map(\.element)
         remaining.insert(contentsOf: moving, at: destination - source.count(in: 0 ..< destination))
         plan.tasks = remaining
@@ -117,6 +143,35 @@ public enum PlanEngine {
     public static func adjust(taskID: UUID, byMinutes delta: Int, in plan: inout DayPlan) {
         guard let task = plan.tasks.first(where: { $0.id == taskID }) else { return }
         resize(taskID: taskID, to: task.plannedMinutes + delta, in: &plan)
+    }
+
+    /// Calendar drag and drop: fixes a pending task to start at `time`, and moves it among the
+    /// pending tasks so the order follows the times. `schedule` is the plan's current schedule.
+    /// It stays after every task that isn't pending (finished or active), and goes before the
+    /// first other pending task that starts at `time` or later.
+    public static func pin(
+        taskID: UUID,
+        at time: LocalTime,
+        in plan: inout DayPlan,
+        schedule: [ScheduledBlock],
+        calendar: Calendar
+    ) {
+        guard let index = plan.tasks.firstIndex(where: { $0.id == taskID && $0.status == .pending }) else { return }
+        var task = plan.tasks.remove(at: index)
+        task.fixedStart = time
+        let date = plan.date.date(at: time, in: calendar)
+        let starts = Dictionary(schedule.map { ($0.taskID, $0.start) }, uniquingKeysWith: { first, _ in first })
+        let afterFixed = (plan.tasks.lastIndex { $0.status != .pending }).map { $0 + 1 } ?? 0
+        let later = plan.tasks.indices.first { position in
+            position >= afterFixed && (starts[plan.tasks[position].id] ?? .distantFuture) >= date
+        }
+        plan.tasks.insert(task, at: later ?? plan.tasks.count)
+    }
+
+    /// Lets the task follow the one before it again.
+    public static func unpin(taskID: UUID, in plan: inout DayPlan) {
+        guard let index = plan.tasks.firstIndex(where: { $0.id == taskID }) else { return }
+        plan.tasks[index].fixedStart = nil
     }
 
     // MARK: Carry-over
@@ -135,6 +190,7 @@ public enum PlanEngine {
             var task = task
             task.status = .pending
             task.brewingSince = nil
+            task.fixedStart = nil
             return task
         }
         return unfinished.count

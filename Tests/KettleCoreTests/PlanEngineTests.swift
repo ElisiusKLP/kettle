@@ -58,64 +58,99 @@ struct PlanEngineTests {
 
     @Test func blocksRunBackToBack() {
         let plan = plan(task("A", 45), task("B", 60), task("C", 20))
-        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: nil)) == [[0, 45], [45, 105], [105, 125]])
+        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: nil, calendar: calendar)) == [
+            [0, 45],
+            [45, 105],
+            [105, 125],
+        ])
     }
 
     @Test func extensionsLengthenTheirBlock() {
         let plan = plan(task("A", 45, extended: 10), task("B", 30))
-        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: nil)) == [[0, 55], [55, 85]])
+        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: nil, calendar: calendar)) == [
+            [0, 55],
+            [55, 85],
+        ])
     }
 
     @Test func resizingShiftsEveryLaterBlock() {
         var plan = plan(task("A", 45), task("B", 60), task("C", 20))
         PlanEngine.resize(taskID: plan.tasks[0].id, to: 30, in: &plan)
-        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: nil)) == [[0, 30], [30, 90], [90, 110]])
+        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: nil, calendar: calendar)) == [
+            [0, 30],
+            [30, 90],
+            [90, 110],
+        ])
     }
 
     @Test func reorderingShiftsTheBlocks() {
         var plan = plan(task("A", 45), task("B", 60), task("C", 20))
         PlanEngine.move(in: &plan, fromOffsets: [2], toOffset: 0)
         #expect(plan.tasks.map(\.title) == ["C", "A", "B"])
-        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: nil)) == [[0, 20], [20, 65], [65, 125]])
+        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: nil, calendar: calendar)) == [
+            [0, 20],
+            [20, 65],
+            [65, 125],
+        ])
     }
 
     @Test func doneBlocksTakeTheirActualTimeAndSkippedTakeNone() {
         let plan = plan(task("A", 45, .done, brewed: 30 * 60), task("B", 60, .skipped), task("C", 20))
-        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: nil)) == [[0, 30], [30, 30], [30, 50]])
+        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: nil, calendar: calendar)) == [
+            [0, 30],
+            [30, 30],
+            [30, 50],
+        ])
     }
 
     @Test func liveScheduleEndsTheBrewingBlockAtNowPlusRemaining() {
         // A started at 09:00 but was paused for 10 minutes; it has brewed 20 of 45 minutes by 09:30.
         let now = nine + 30 * 60
         let plan = plan(task("A", 45, .brewing, brewed: 10 * 60, since: now - 10 * 60), task("B", 30))
-        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: now)) == [[0, 55], [55, 85]])
+        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: now, calendar: calendar)) == [
+            [0, 55],
+            [55, 85],
+        ])
     }
 
     @Test func liveScheduleCountsAPausedBlocksRemainingTimeFromNow() {
         let now = nine + 60 * 60
         let plan = plan(task("A", 45, .paused, brewed: 15 * 60), task("B", 30))
-        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: now)) == [[0, 90], [90, 120]])
+        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: now, calendar: calendar)) == [
+            [0, 90],
+            [90, 120],
+        ])
     }
 
     @Test func inOvertimeTheBrewingBlockEndsNow() {
         let now = nine + 50 * 60
         let plan = plan(task("A", 45, .brewing, since: nine), task("B", 30))
-        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: now)) == [[0, 50], [50, 80]])
+        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: now, calendar: calendar)) == [
+            [0, 50],
+            [50, 80],
+        ])
     }
 
     @Test func pendingBlocksNeverStartInThePast() {
         let now = nine + 120 * 60
         let plan = plan(task("A", 45, .done, brewed: 45 * 60), task("B", 30), task("C", 15))
-        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: now)) == [[0, 45], [120, 150], [150, 165]])
+        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: now, calendar: calendar)) == [
+            [0, 45],
+            [120, 150],
+            [150, 165],
+        ])
     }
 
     @Test func withoutNowABrewingBlockTakesAtLeastItsPlannedTime() {
         let plan = plan(task("A", 45, .paused, brewed: 50 * 60), task("B", 30, .brewing, brewed: 60))
-        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: nil)) == [[0, 50], [50, 80]])
+        #expect(offsets(PlanEngine.schedule(for: plan, from: nine, now: nil, calendar: calendar)) == [
+            [0, 50],
+            [50, 80],
+        ])
     }
 
     @Test func emptyPlanHasNoBlocks() {
-        #expect(PlanEngine.schedule(for: DayPlan(date: today), from: nine, now: nine).isEmpty)
+        #expect(PlanEngine.schedule(for: DayPlan(date: today), from: nine, now: nine, calendar: calendar).isEmpty)
     }
 
     @Test func completeWhenEveryTaskIsDoneOrSkipped() {

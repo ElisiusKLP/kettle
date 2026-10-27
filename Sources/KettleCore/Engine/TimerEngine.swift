@@ -115,6 +115,10 @@ public struct TimerEngine {
     /// Starts brewing `taskID`, or if nil, resumes the paused task or starts the first pending one.
     /// Starting a different task returns the active one to pending, keeping its brewed time.
     /// The first start on a day without a start time sets it to now.
+    ///
+    /// A pending task that starts moves up to be next in line (ahead of the other pending tasks)
+    /// and, on today's plan, its `fixedStart` becomes now, so derived times follow what really
+    /// happened. Resuming a paused task keeps its start, so the pause stretches its block.
     @discardableResult
     public mutating func start(taskID: UUID? = nil) -> [Session] {
         let target: Int? = if let taskID {
@@ -122,21 +126,31 @@ public struct TimerEngine {
         } else {
             activeIndex ?? plan.tasks.firstIndex { $0.status == .pending }
         }
-        guard let target, plan.tasks[target].status != .brewing else { return [] }
+        guard var target, plan.tasks[target].status != .brewing else { return [] }
 
         let now = clock.now
+        let isToday = plan.date == LocalDate(now, in: calendar)
         var closed: [Session] = []
         if let active = activeIndex, active != target {
             closed += closeSession(at: active, now: now)
             plan.tasks[active].status = .pending
+            plan.tasks[active].fixedStart = nil
+        }
+        if plan.tasks[target].status == .pending {
+            if let first = plan.tasks.indices.first(where: { $0 != target && plan.tasks[$0].status == .pending }),
+               first < target
+            {
+                plan.tasks.insert(plan.tasks.remove(at: target), at: first)
+                target = first
+            }
+            plan.tasks[target].fixedStart = isToday ? LocalTime(now, in: calendar) : nil
         }
         plan.tasks[target].status = .brewing
         plan.tasks[target].brewingSince = now
         plan.tasks[target].sessionExtensionMinutes = 0
 
-        if plan.startTime == nil, plan.date == LocalDate(now, in: calendar) {
-            let components = calendar.dateComponents([.hour, .minute], from: now)
-            plan.startTime = LocalTime(hour: components.hour ?? 0, minute: components.minute ?? 0)
+        if plan.startTime == nil, isToday {
+            plan.startTime = LocalTime(now, in: calendar)
         }
         return closed
     }
@@ -217,6 +231,7 @@ public struct TimerEngine {
             if let active = activeIndex {
                 closed += closeSession(at: active, now: clock.now)
                 plan.tasks[active].status = .pending
+                plan.tasks[active].fixedStart = nil
             }
             // Paused, so starting it resumes the block where it was.
             plan.tasks[index].status = .paused

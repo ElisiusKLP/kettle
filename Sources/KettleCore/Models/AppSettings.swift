@@ -23,6 +23,14 @@ public enum TimerPrecision: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// How the popover shows the day.
+public enum PlanLayout: String, Codable, Sendable, CaseIterable {
+    /// A compact day calendar with blocks at their times, which can be dragged to a new time.
+    case calendar
+    /// A list in execution order.
+    case list
+}
+
 public enum Weekday: String, Codable, Sendable, CaseIterable {
     case sunday, monday, tuesday, wednesday, thursday, friday, saturday
 
@@ -52,13 +60,18 @@ public struct AppSettings: StoredDocument, Hashable {
     public var notifyOnFinish = true
     public var launchAtLogin = false
     public var weekStartsOn = Weekday.monday
+    public var planLayout = PlanLayout.calendar
+    /// Minutes between the time marks down the side of the calendar: one of `calendarIntervals`.
+    public var calendarIntervalMinutes = 60
+
+    public static let calendarIntervals = [15, 30, 60]
 
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
         case extendMinutes, secondaryExtendMinutes, resizeStepMinutes, autoStartNext, overtime, menubarFormat,
              timerPrecision
-        case whistleSound, notifyOnFinish, launchAtLogin, weekStartsOn
+        case whistleSound, notifyOnFinish, launchAtLogin, weekStartsOn, planLayout, calendarIntervalMinutes
     }
 
     public init(from decoder: Decoder) throws {
@@ -78,5 +91,9 @@ public struct AppSettings: StoredDocument, Hashable {
         notifyOnFinish = value(.notifyOnFinish, default: defaults.notifyOnFinish)
         launchAtLogin = value(.launchAtLogin, default: defaults.launchAtLogin)
         weekStartsOn = value(.weekStartsOn, default: defaults.weekStartsOn)
+        planLayout = value(.planLayout, default: defaults.planLayout)
+        let interval = value(.calendarIntervalMinutes, default: defaults.calendarIntervalMinutes)
+        calendarIntervalMinutes = Self.calendarIntervals.contains(interval) ? interval : defaults
+            .calendarIntervalMinutes
     }
 }

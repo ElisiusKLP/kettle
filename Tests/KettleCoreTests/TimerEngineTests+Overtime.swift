@@ -15,7 +15,7 @@ extension TimerEngineTests {
         #expect(engine.activeTask?.plannedMinutes == 45)
         #expect(engine.remainingSeconds(at: clock.now) == minutes(15))
 
-        let blocks = PlanEngine.schedule(for: engine.plan, from: nine, now: clock.now)
+        let blocks = PlanEngine.schedule(for: engine.plan, from: nine, now: clock.now, calendar: calendar)
         #expect(blocks[1].start == nine + minutes(55))
 
         clock.advance(by: minutes(15))

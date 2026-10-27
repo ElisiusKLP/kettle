@@ -21,6 +21,12 @@ public struct LocalTime: Hashable, Comparable, Sendable, Codable, CustomStringCo
         self.init(hour: hour, minute: minute)
     }
 
+    /// The hour and minute of `date` in `calendar`'s time zone.
+    public init(_ date: Date, in calendar: Calendar) {
+        let components = calendar.dateComponents([.hour, .minute], from: date)
+        self.init(validHour: components.hour ?? 0, minute: components.minute ?? 0)
+    }
+
     private init(validHour hour: Int, minute: Int) {
         self.hour = hour
         self.minute = minute

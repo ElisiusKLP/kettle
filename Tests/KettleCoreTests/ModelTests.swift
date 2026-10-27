@@ -150,6 +150,16 @@ struct AppSettingsTests {
         #expect(settings.notifyOnFinish)
         #expect(!settings.launchAtLogin)
         #expect(settings.weekStartsOn == .monday)
+        #expect(!settings.overtime)
+        #expect(settings.planLayout == .calendar)
+        #expect(settings.calendarIntervalMinutes == 60)
+    }
+
+    @Test func calendarIntervalMustBeOneOfTheChoices() throws {
+        let json = #"{"calendarIntervalMinutes":20,"planLayout":"list"}"#
+        let settings = try JSONDecoder().decode(AppSettings.self, from: Data(json.utf8))
+        #expect(settings.calendarIntervalMinutes == 60)
+        #expect(settings.planLayout == .list)
     }
 
     @Test func missingAndInvalidKeysFallBackToDefaults() throws {

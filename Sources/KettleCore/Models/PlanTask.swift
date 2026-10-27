@@ -27,6 +27,10 @@ public struct PlanTask: Codable, Identifiable, Hashable, Sendable {
     /// Keep brewing minutes added during the open session. Moves to `Session.extensionsMinutes`
     /// when the session closes.
     public var sessionExtensionMinutes: Int
+    /// When the block starts, on its plan's day. Set by dragging it in the calendar (it then
+    /// starts no earlier than this) and by starting it (when it actually started). Without it,
+    /// the block follows the one before.
+    public var fixedStart: LocalTime?
 
     public init(
         id: UUID = UUID(),
@@ -38,7 +42,8 @@ public struct PlanTask: Codable, Identifiable, Hashable, Sendable {
         extendedMinutes: Int = 0,
         brewedSeconds: Int = 0,
         brewingSince: Date? = nil,
-        sessionExtensionMinutes: Int = 0
+        sessionExtensionMinutes: Int = 0,
+        fixedStart: LocalTime? = nil
     ) {
         self.id = id
         self.title = title
@@ -50,6 +55,7 @@ public struct PlanTask: Codable, Identifiable, Hashable, Sendable {
         self.brewedSeconds = brewedSeconds
         self.brewingSince = brewingSince
         self.sessionExtensionMinutes = sessionExtensionMinutes
+        self.fixedStart = fixedStart
     }
 
     /// Planned length of the block including extensions.
@@ -74,7 +80,7 @@ public struct PlanTask: Codable, Identifiable, Hashable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case id, title, labelID, plannedMinutes, notes, status, extendedMinutes, brewedSeconds, brewingSince
-        case sessionExtensionMinutes
+        case sessionExtensionMinutes, fixedStart
     }
 
     public init(from decoder: Decoder) throws {
@@ -89,7 +95,8 @@ public struct PlanTask: Codable, Identifiable, Hashable, Sendable {
             extendedMinutes: container.decodeIfPresent(Int.self, forKey: .extendedMinutes) ?? 0,
             brewedSeconds: container.decodeIfPresent(Int.self, forKey: .brewedSeconds) ?? 0,
             brewingSince: container.decodeIfPresent(Date.self, forKey: .brewingSince),
-            sessionExtensionMinutes: container.decodeIfPresent(Int.self, forKey: .sessionExtensionMinutes) ?? 0
+            sessionExtensionMinutes: container.decodeIfPresent(Int.self, forKey: .sessionExtensionMinutes) ?? 0,
+            fixedStart: container.decodeIfPresent(LocalTime.self, forKey: .fixedStart)
         )
     }
 

@@ -153,3 +153,54 @@ extension TimerEngineTests {
         #expect(engine.plan.tasks[0].status == .done)
     }
 }
+
+/// Start times and pauses in the derived schedule.
+extension TimerEngineTests {
+    func offsets(_ engine: TimerEngine) -> [[Int]] {
+        PlanEngine.schedule(for: engine.plan, from: nine, now: clock.now, calendar: calendar).map {
+            [Int($0.start.timeIntervalSince(nine) / 60), Int($0.end.timeIntervalSince(nine) / 60)]
+        }
+    }
+
+    @Test func startRecordsWhenTheTaskReallyStarted() {
+        var engine = engine()
+        clock.advance(by: 125) // 09:02:05
+        engine.start()
+        #expect(engine.activeTask?.fixedStart == LocalTime("09:02"))
+    }
+
+    @Test func pausingPushesTheEndOfTheBlockAndEverythingAfter() {
+        var engine = engine([("Write", 45), ("Gym", 60)])
+        engine.start()
+        clock.advance(by: minutes(10))
+        engine.pause()
+        // Paused for 30 minutes: the block keeps its 09:00 start and still needs 35 minutes.
+        clock.advance(by: minutes(30))
+        #expect(offsets(engine) == [[0, 75], [75, 135]])
+        engine.start()
+        #expect(engine.remainingSeconds(at: clock.now) == minutes(35))
+        #expect(engine.activeTask?.fixedStart == LocalTime("09:00"))
+        clock.advance(by: minutes(35))
+        #expect(offsets(engine) == [[0, 75], [75, 135]])
+    }
+
+    @Test func startingAPinnedTaskEarlyMovesItToNow() {
+        var engine = engine()
+        engine.editPlan { plan in
+            plan.tasks[2].fixedStart = LocalTime("14:00")
+        }
+        engine.start(taskID: engine.plan.tasks[2].id)
+        #expect(engine.plan.tasks.map(\.title) == ["Emails", "Write", "Gym"])
+        #expect(engine.activeTask?.fixedStart == LocalTime("09:00"))
+        #expect(offsets(engine) == [[0, 20], [20, 65], [65, 125]])
+    }
+
+    @Test func aTaskSentBackToPendingLosesItsStart() {
+        var engine = engine()
+        engine.start()
+        clock.advance(by: minutes(5))
+        engine.start(taskID: engine.plan.tasks[1].id)
+        #expect(engine.plan.tasks.map(\.title) == ["Gym", "Write", "Emails"])
+        #expect(engine.plan.tasks[1].fixedStart == nil)
+    }
+}

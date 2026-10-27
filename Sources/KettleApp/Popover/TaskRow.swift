@@ -25,7 +25,7 @@ struct TaskRow: View {
             .accessibilityElement(children: .combine)
             Spacer()
             if isActive {
-                countdown
+                Countdown(task: task).fontWeight(.medium)
             }
             Text("\(task.totalMinutes)m")
                 .monospacedDigit()
@@ -41,7 +41,7 @@ struct TaskRow: View {
         }
         .padding(.vertical, 2)
         .listRowBackground(isActive ? Color.accentColor.opacity(0.12) : Color.clear)
-        .contextMenu { menu }
+        .contextMenu { TaskMenu(task: task, state: state) }
     }
 
     /// "09:00–09:45 · work", plus the status for finished and paused tasks.
@@ -63,33 +63,6 @@ struct TaskRow: View {
         case .pending: break
         }
         return parts.joined(separator: " · ")
-    }
-
-    /// Ticks once a second, but only while the popover is open and only in this row.
-    private var countdown: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let remaining = task.remainingSeconds(at: context.date)
-            Text(CountdownFormatter.string(remaining: remaining, precision: .seconds))
-                .monospacedDigit()
-                .fontWeight(.medium)
-                .accessibilityLabel(StatusDescription.spoken(remaining: remaining))
-        }
-    }
-
-    @ViewBuilder
-    private var menu: some View {
-        ForEach(state.actions(for: task), id: \.self) { action in
-            switch action {
-            case .start: Button("Start") { state.start(task.id) }
-            case .pause: Button("Pause") { state.toggle() }
-            case .resume: Button("Resume") { state.toggle() }
-            case .done: Button("Done") { state.done(task.id) }
-            case .keepBrewing: Button("Keep brewing +\(state.settings.extendMinutes)m") { state.keepBrewing(task.id) }
-            case .skip: Button("Skip") { state.skip(task.id) }
-            }
-        }
-        Divider()
-        Button("Delete", role: .destructive) { state.remove(task.id) }
     }
 }
 

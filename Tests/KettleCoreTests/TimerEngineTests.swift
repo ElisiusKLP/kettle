@@ -98,13 +98,17 @@ struct TimerEngineTests {
         var engine = engine()
         engine.start()
         clock.advance(by: minutes(10))
+        let write = engine.plan.tasks[0].id
         let closed = engine.start(taskID: engine.plan.tasks[2].id)
         #expect(closed.count == 1)
         #expect(closed.first?.duration == minutes(10))
-        #expect(engine.plan.tasks.map(\.status) == [.pending, .pending, .brewing])
-        #expect(engine.plan.tasks[0].brewedSeconds == 600)
+        // The started task moves up to be next in line.
+        #expect(engine.plan.tasks.map(\.title) == ["Emails", "Write", "Gym"])
+        #expect(engine.plan.tasks.map(\.status) == [.brewing, .pending, .pending])
+        #expect(engine.plan.tasks[1].brewedSeconds == 600)
         // Coming back to the first task continues where it left off.
-        engine.start(taskID: engine.plan.tasks[0].id)
+        engine.start(taskID: write)
+        #expect(engine.activeTask?.id == write)
         #expect(engine.remainingSeconds(at: clock.now) == minutes(35))
     }
 

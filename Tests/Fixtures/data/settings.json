@@ -1,10 +1,12 @@
 {
   "autoStartNext" : false,
+  "calendarIntervalMinutes" : 60,
   "extendMinutes" : 15,
   "launchAtLogin" : false,
   "menubarFormat" : "iconAndTime",
   "notifyOnFinish" : true,
   "overtime" : false,
+  "planLayout" : "calendar",
   "resizeStepMinutes" : 5,
   "schemaVersion" : 1,
   "secondaryExtendMinutes" : 5,

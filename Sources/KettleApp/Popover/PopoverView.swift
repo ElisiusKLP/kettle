@@ -17,7 +17,11 @@ struct PopoverView: View {
             quickAddField
             Divider()
             TimelineView(.everyMinute) { context in
-                taskList(now: context.date)
+                if state.settings.planLayout == .calendar {
+                    CalendarDayView(state: state, now: context.date)
+                } else {
+                    taskList(now: context.date)
+                }
             }
             Divider()
             footer

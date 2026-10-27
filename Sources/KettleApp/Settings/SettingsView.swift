@@ -40,6 +40,17 @@ private struct GeneralSettings: View {
                 Text("Keep brewing into overtime").tag(true)
             }
             Toggle("Start the next task automatically when one finishes", isOn: $state.settings.autoStartNext)
+            Picker("Show the day as", selection: $state.settings.planLayout) {
+                Text("Calendar").tag(PlanLayout.calendar)
+                Text("List").tag(PlanLayout.list)
+            }
+            if state.settings.planLayout == .calendar {
+                Picker("Calendar time marks", selection: $state.settings.calendarIntervalMinutes) {
+                    ForEach(AppSettings.calendarIntervals, id: \.self) { minutes in
+                        Text(minutes == 60 ? "Every hour" : "Every \(minutes) minutes").tag(minutes)
+                    }
+                }
+            }
             Picker("Menubar shows", selection: $state.settings.menubarFormat) {
                 Text("Kettle only").tag(MenubarFormat.iconOnly)
                 Text("Kettle and time").tag(MenubarFormat.iconAndTime)
