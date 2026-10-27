@@ -165,3 +165,20 @@ struct StatsCalculatorTests {
         return totals
     }
 }
+
+struct DurationTextTests {
+    @Test(arguments: [
+        (0, "0m"),
+        (29, "0m"),
+        (30, "1m"),
+        (2700, "45m"),
+        (3570, "1h 00m"),
+        (3600, "1h 00m"),
+        (11100, "3h 05m"),
+        (-5, "0m"),
+        (360_000, "100h 00m"),
+    ])
+    func formatsShortDurations(seconds: Int, expected: String) {
+        #expect(DurationText.short(seconds: seconds) == expected)
+    }
+}

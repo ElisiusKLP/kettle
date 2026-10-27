@@ -218,4 +218,15 @@ struct KettleModelTests {
         #expect(model.labels.isEmpty)
         #expect(errors.count == 1)
     }
+
+    @Test func statsComeFromTheDailyTotalsCache() throws {
+        let model = try makeModel()
+        model.add(QuickAddEntry(title: "A", minutes: 5, labelName: nil))
+        model.start()
+        clock.advance(by: 120)
+        model.done()
+        let totals = try model.loadStats()
+        #expect(totals[today, nil].seconds == 120)
+        #expect(totals[today, nil].tasksDone == 1)
+    }
 }

@@ -8,12 +8,19 @@ final class PopoverController: NSObject, NSPopoverDelegate {
     private let model: KettleModel
     private let onChange: () -> Void
     private let onOpenSettings: () -> Void
+    private let onOpenStats: () -> Void
     private var popover: NSPopover?
 
-    init(model: KettleModel, onChange: @escaping () -> Void, onOpenSettings: @escaping () -> Void) {
+    init(
+        model: KettleModel,
+        onChange: @escaping () -> Void,
+        onOpenSettings: @escaping () -> Void,
+        onOpenStats: @escaping () -> Void
+    ) {
         self.model = model
         self.onChange = onChange
         self.onOpenSettings = onOpenSettings
+        self.onOpenStats = onOpenStats
     }
 
     var isShown: Bool {
@@ -30,7 +37,7 @@ final class PopoverController: NSObject, NSPopoverDelegate {
         popover.delegate = self
         let state = PopoverState(model: model, onChange: onChange)
         popover.contentViewController = NSHostingController(
-            rootView: PopoverView(state: state, openSettings: onOpenSettings)
+            rootView: PopoverView(state: state, openSettings: onOpenSettings, openStats: onOpenStats)
         )
         self.popover = popover
         NSApp.activate()

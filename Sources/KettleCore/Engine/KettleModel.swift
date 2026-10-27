@@ -156,6 +156,11 @@ public final class KettleModel {
 
     // MARK: Data
 
+    /// The per-day totals the Stats window reads (never the raw sessions).
+    public func loadStats() throws -> DailyTotals {
+        try cache.load()
+    }
+
     public func exportJSON() throws -> Data {
         try DataTransfer.encode(DataTransfer.export(from: store, exportedAt: clock.now))
     }

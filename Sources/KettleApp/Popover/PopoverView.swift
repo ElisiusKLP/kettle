@@ -5,6 +5,7 @@ import SwiftUI
 struct PopoverView: View {
     @Bindable var state: PopoverState
     let openSettings: () -> Void
+    let openStats: () -> Void
     @FocusState private var quickAddFocused: Bool
 
     var body: some View {
@@ -114,6 +115,9 @@ struct PopoverView: View {
                 Spacer()
                 Button("Back to today") { state.showToday() }
             }
+            Button(action: openStats) { Image(systemName: "chart.bar") }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Stats")
             Button(action: openSettings) { Image(systemName: "gearshape") }
                 .buttonStyle(.borderless)
                 .keyboardShortcut(",", modifiers: .command)

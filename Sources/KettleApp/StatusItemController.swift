@@ -16,6 +16,7 @@ final class StatusItemController: NSObject {
     private var power: PowerEvents?
     private var popover: PopoverController?
     private var settingsWindow: SettingsWindowController?
+    private var statsWindow: StatsWindowController?
     private var notifier: WhistleNotifier?
     private let style: KettleIcon.Style
     /// Tilted whistling frames for the one-off wiggle, rendered the first time it plays.
@@ -40,11 +41,13 @@ final class StatusItemController: NSObject {
         settingsWindow = SettingsWindowController(model: model, dataFolder: dataFolder) { [weak self] in
             self?.settingsDidChange()
         }
+        statsWindow = StatsWindowController(model: model)
         notifier = WhistleNotifier(model: model) { [weak self] in self?.modelDidChange() }
         popover = PopoverController(
             model: model,
             onChange: { [weak self] in self?.modelDidChange() },
-            onOpenSettings: { [weak self] in self?.openSettings() }
+            onOpenSettings: { [weak self] in self?.openSettings() },
+            onOpenStats: { [weak self] in self?.openStats() }
         )
 
         timer.onFire = { [weak self] in self?.tick() }
@@ -122,6 +125,11 @@ final class StatusItemController: NSObject {
         settingsWindow?.show()
     }
 
+    @objc private func openStats() {
+        popover?.close()
+        statsWindow?.show()
+    }
+
     private func sleep() {
         timer.cancel()
         model.flush()
@@ -150,8 +158,7 @@ final class StatusItemController: NSObject {
     private func showMenu() {
         let menu = NSMenu()
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
-        let stats = menu.addItem(withTitle: "Stats…", action: nil, keyEquivalent: "")
-        stats.isEnabled = false // build step 12
+        menu.addItem(withTitle: "Stats…", action: #selector(openStats), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Kettle", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu

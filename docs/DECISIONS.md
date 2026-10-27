@@ -357,3 +357,13 @@ Our own tick allocates nothing and is negligible; the cost is AppKit rendering a
 ### Wiggle
 **Chose:** when the block first runs out (`MenubarTicker.Update.startedWhistling`), the icon shows five pre-rotated whistling frames 120 ms apart (about 0.6 s), then settles. The frames are rendered the first time a wiggle plays, and nothing plays with Reduce Motion on.
 **Why:** this is the single allowed animation (§6.4). It costs a handful of image swaps once per block.
+
+## Step 12: Stats window
+
+### Contents
+**Chose:** a segmented picker (Today / This week / This month / Custom with two date pickers), a horizontal bar chart of time per label (annotated with `3h 05m`-style totals), a daily bar chart stacked by label, and a totals table: label (with an "archived" tag), time brewed, planned → actual for done tasks, and "N of M" done tasks extended. Labels use their own colours; "No label" and deleted labels are grey. An empty period says "Nothing brewed in this period yet."
+**Why:** this covers §5.3. "Planned → actual" with the extension count is the calibration view §5.3 asks for.
+
+### Data and lifetime
+**Chose:** the window reads `daily-totals.json` once, through `KettleModel.loadStats()`, when it opens, and never reads raw sessions. Like Settings, it's created on demand and released after `windowWillClose`, so Swift Charts code only exists while it's open. It opens from the right-click menu or the chart button in the popover footer.
+**Why:** §5.3 and §8 rules 2 and 6. The default period is "This week", the most useful view at a glance.
