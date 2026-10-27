@@ -3,7 +3,9 @@ import SwiftUI
 
 /// The day as a compact calendar, like Calendar's day view: time marks down the left, each block
 /// at its derived time, and a line at the current time. Pending blocks can be dragged to a new
-/// time, which pins them there (`PlanEngine.pin`).
+/// time, which pins them there (`PlanEngine.pin`). Dragging a block's bottom edge changes its
+/// duration, and a pending block's top edge its start. While dragging, the whole day is laid
+/// out as if dropped there, so the other blocks make room instead of being covered.
 struct CalendarDayView: View {
     let state: PopoverState
     let now: Date
@@ -17,8 +19,17 @@ struct CalendarDayView: View {
     /// Blocks running past midnight extend the calendar, up to noon the next day.
     static let maximumMinutes = 36 * 60
 
-    @State private var drag: (taskID: UUID, offset: CGFloat)?
-    @State private var hovered: UUID?
+    /// Height of the strip at the top and bottom of a block that resizes it.
+    static let edgeHeight: CGFloat = 5
+
+    /// A drag in progress.
+    private struct Drag {
+        let taskID: UUID
+        let kind: DragKind
+        let translation: CGFloat
+    }
+
+    @State private var drag: Drag?
 
     private var interval: Int {
         state.settings.calendarIntervalMinutes
@@ -38,8 +49,8 @@ struct CalendarDayView: View {
     }
 
     var body: some View {
-        let blocks = state.calendarBlocks(now: now)
-        let tasks = Dictionary(uniqueKeysWithValues: state.plan.tasks.map { ($0.id, $0) })
+        let (plan, blocks) = preview(state.calendarBlocks(now: now))
+        let tasks = Dictionary(uniqueKeysWithValues: plan.tasks.map { ($0.id, $0) })
         let length = dayLength(blocks)
         ScrollViewReader { proxy in
             ScrollView {
@@ -129,57 +140,134 @@ struct CalendarDayView: View {
         let top = y(minutes: minutes(block.start))
         let bottom = y(minutes: minutes(block.end))
         let height = max(Self.minimumBlockHeight, bottom - top)
-        let dragOffset = drag?.taskID == task.id ? drag?.offset ?? 0 : 0
+        let dragged = drag?.taskID == task.id ? drag?.kind : nil
         return CalendarBlock(
             task: task,
             label: state.label(for: task),
             block: block,
             isActive: task.id == state.activeTaskID,
-            isHovered: hovered == task.id,
+            isDragged: dragged != nil,
             showsDetails: height >= 30,
-            dropTime: drag?.taskID == task.id ? timeText(dropTime(block, offset: dragOffset)) : nil,
+            corner: cornerText(task, block, dragged: dragged),
             state: state
         )
         .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
-        .padding(.leading, Self.gutterWidth + 2)
-        .offset(y: top + dragOffset)
-        .zIndex(drag?.taskID == task.id ? 1 : 0)
-        .onHover { inside in
-            if inside {
-                hovered = task.id
-            } else if hovered == task.id {
-                hovered = nil
+        .overlay(alignment: .top) {
+            if task.status == .pending {
+                edge(task, .top, height: height)
             }
         }
-        .gesture(dragGesture(task, block), including: task.status == .pending ? .all : .subviews)
+        .overlay(alignment: .bottom) {
+            if !task.isFinished {
+                edge(task, .bottom, height: height)
+            }
+        }
+        .padding(.leading, Self.gutterWidth + 2)
+        .offset(y: top)
+        .zIndex(dragged != nil ? 1 : 0)
+        .gesture(dragGesture(task.id, .move), including: task.status == .pending ? .all : .subviews)
     }
 
-    private func dragGesture(_ task: PlanTask, _ block: ScheduledBlock) -> some Gesture {
+    /// The strip along a block's top or bottom edge that resizes it, with the resize cursor.
+    private func edge(_ task: PlanTask, _ kind: DragKind, height: CGFloat) -> some View {
+        Color.clear
+            .frame(height: min(Self.edgeHeight, height / 4))
+            .contentShape(Rectangle())
+            .onHover { inside in
+                if inside {
+                    NSCursor.resizeUpDown.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+            .gesture(dragGesture(task.id, kind))
+    }
+
+    private func dragGesture(_ taskID: UUID, _ kind: DragKind) -> some Gesture {
         // Global coordinates: the block moves with the drag, so its own would shift under it.
-        DragGesture(minimumDistance: 4, coordinateSpace: .global)
+        DragGesture(minimumDistance: 3, coordinateSpace: .global)
             .onChanged { value in
-                drag = (task.id, value.translation.height)
+                drag = Drag(taskID: taskID, kind: kind, translation: value.translation.height)
             }
             .onEnded { value in
+                let finished = Drag(taskID: taskID, kind: kind, translation: value.translation.height)
                 drag = nil
-                state.pin(task.id, at: dropTime(block, offset: value.translation.height), now: now)
+                if let change = change(for: finished, blocks: state.calendarBlocks(now: now)) {
+                    state.rearrange(change)
+                }
             }
     }
 
-    /// Where a block dragged by `offset` points lands, snapped and kept within the day (a fixed
-    /// start is a time on the plan's own day).
-    private func dropTime(_ block: ScheduledBlock, offset: CGFloat) -> LocalTime {
-        let raw = Double(minutes(block.start)) + Double(offset / pointsPerMinute)
-        let snapped = Int((raw / Double(Self.snapMinutes)).rounded()) * Self.snapMinutes
-        let clamped = min(max(snapped, 0), 24 * 60 - Self.snapMinutes)
+    /// The shown plan and its blocks, or while dragging, both as they'd be after the drop.
+    private func preview(_ blocks: [ScheduledBlock]) -> (DayPlan, [ScheduledBlock]) {
+        guard let drag, let change = change(for: drag, blocks: blocks) else { return (state.plan, blocks) }
+        var plan = state.plan
+        change(&plan)
+        return (plan, state.calendarBlocks(for: plan, now: now))
+    }
+
+    /// The plan edit a drag makes, worked out against the blocks as they were before it.
+    private func change(for drag: Drag, blocks: [ScheduledBlock]) -> ((inout DayPlan) -> Void)? {
+        guard let block = blocks.first(where: { $0.taskID == drag.taskID }) else { return nil }
+        let moved = Double(drag.translation / pointsPerMinute)
+        let calendar = state.calendar
+        let taskID = drag.taskID
+        switch drag.kind {
+        case .move:
+            let time = localTime(snapped(offset(block.start) + moved))
+            return { PlanEngine.pin(taskID: taskID, at: time, in: &$0, schedule: blocks, calendar: calendar) }
+        case .top:
+            // At least one snap step before the end.
+            let latest = Int(offset(block.end)) - Self.snapMinutes
+            let time = localTime(min(snapped(offset(block.start) + moved), latest))
+            return { PlanEngine.resize(taskID: taskID, start: time, in: &$0, schedule: blocks, calendar: calendar) }
+        case .bottom:
+            let end = dayStart + TimeInterval(snapped(offset(block.end) + moved) * 60)
+            let now = state.date == state.today ? now : nil
+            return { PlanEngine.resize(taskID: taskID, end: end, in: &$0, schedule: blocks, now: now) }
+        }
+    }
+
+    /// The right corner: while dragging, the new start (or the new length for the bottom edge);
+    /// otherwise the countdown for the active task and the length for every other one.
+    private func cornerText(_ task: PlanTask, _ block: ScheduledBlock, dragged: DragKind?) -> CalendarBlock.Corner {
+        switch dragged {
+        case .move, .top:
+            .text(block.start.formatted(date: .omitted, time: .shortened), emphasised: true)
+        case .bottom:
+            .text(DurationText.short(seconds: Int(block.end.timeIntervalSince(block.start))), emphasised: true)
+        case nil where task.id == state.activeTaskID:
+            .countdown
+        case nil:
+            .text(DurationText.short(seconds: lengthSeconds(task, block)), emphasised: false)
+        }
+    }
+
+    /// Done tasks show the time actually brewed; others their planned length with extensions.
+    private func lengthSeconds(_ task: PlanTask, _ block: ScheduledBlock) -> Int {
+        switch task.status {
+        case .done, .skipped: Int(block.end.timeIntervalSince(block.start))
+        default: task.totalMinutes * 60
+        }
+    }
+
+    /// Minutes since the start of the shown day, rounded to the snap step.
+    private func snapped(_ minutes: Double) -> Int {
+        Int((minutes / Double(Self.snapMinutes)).rounded()) * Self.snapMinutes
+    }
+
+    /// A time on the shown day (fixed starts can't run past midnight).
+    private func localTime(_ minutes: Int) -> LocalTime {
+        let clamped = min(max(minutes, 0), 24 * 60 - Self.snapMinutes)
         return LocalTime(hour: clamped / 60, minute: clamped % 60) ?? .midnight
     }
 
-    private func timeText(_ time: LocalTime) -> String {
-        state.date.date(at: time, in: state.calendar).formatted(date: .omitted, time: .shortened)
-    }
-
     // MARK: Geometry
+
+    /// Minutes from the start of the shown day.
+    private func offset(_ date: Date) -> Double {
+        date.timeIntervalSince(dayStart) / 60
+    }
 
     /// Minutes from the start of the shown day, kept within what the calendar shows.
     private func minutes(_ date: Date) -> Int {
@@ -201,18 +289,27 @@ struct CalendarDayView: View {
     }
 }
 
-/// One block in the calendar: label colour, title, times when there's room, the countdown while
-/// active, and duration buttons on hover.
+/// What a calendar drag moves: the whole block, or one of its edges.
+private enum DragKind {
+    case move, top, bottom
+}
+
+/// One block in the calendar: label colour, title, times when there's room, and the countdown or
+/// length in the right corner.
 private struct CalendarBlock: View {
+    enum Corner {
+        case countdown
+        case text(String, emphasised: Bool)
+    }
+
     let task: PlanTask
     let label: KettleCore.Label?
     let block: ScheduledBlock
     let isActive: Bool
-    let isHovered: Bool
+    let isDragged: Bool
     /// Room for a second line with the times.
     let showsDetails: Bool
-    /// While dragging: where it would land.
-    let dropTime: String?
+    let corner: Corner
     let state: PopoverState
 
     private var color: Color {
@@ -237,13 +334,13 @@ private struct CalendarBlock: View {
             }
             .accessibilityElement(children: .combine)
             Spacer(minLength: 0)
-            if let dropTime {
-                Text(dropTime).font(.caption2.monospacedDigit().bold())
-            } else if isActive {
-                Countdown(task: task).font(.caption.monospacedDigit())
-            }
-            if isHovered, dropTime == nil, !task.isFinished {
-                durationButtons
+            switch corner {
+            case .countdown:
+                Countdown(task: task).font(.caption.monospacedDigit().weight(.medium))
+            case let .text(text, emphasised):
+                Text(text)
+                    .font(.caption.monospacedDigit().weight(emphasised ? .bold : .regular))
+                    .foregroundStyle(emphasised ? .primary : .secondary)
             }
         }
         .padding(.leading, 7)
@@ -266,9 +363,18 @@ private struct CalendarBlock: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 4))
+        .shadow(color: .black.opacity(isDragged ? 0.25 : 0), radius: 3, y: 1)
         .contentShape(Rectangle())
         .contextMenu { TaskMenu(task: task, state: state) }
-        .help(task.status == .pending ? "Drag to another time" : "")
+        .help(help)
+    }
+
+    private var help: String {
+        switch task.status {
+        case .pending: "Drag to move. Drag the top or bottom edge to change the time."
+        case .brewing, .paused: "Drag the bottom edge to change the length."
+        case .done, .skipped: ""
+        }
     }
 
     /// "09:00–09:45 · work · Paused"
@@ -283,21 +389,5 @@ private struct CalendarBlock: View {
             parts.append("Paused")
         }
         return parts.joined(separator: " · ")
-    }
-
-    private var durationButtons: some View {
-        HStack(spacing: 2) {
-            Button { state.adjust(task.id, by: -state.settings.resizeStepMinutes) } label: {
-                Image(systemName: "minus.circle")
-            }
-            .accessibilityLabel("Shorten \(task.title)")
-            Button { state.adjust(task.id, by: state.settings.resizeStepMinutes) } label: {
-                Image(systemName: "plus.circle")
-            }
-            .accessibilityLabel("Lengthen \(task.title)")
-        }
-        .buttonStyle(.borderless)
-        .font(.caption)
-        .help("Change the duration by \(state.settings.resizeStepMinutes) minutes")
     }
 }

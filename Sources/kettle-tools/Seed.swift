@@ -147,8 +147,12 @@ struct DemoGenerator {
             let titles = Self.catalogue.first { $0.label == label.name }?.titles ?? ["Task"]
             var task = PlanTask(title: titles[next(titles.count)], labelID: label.id, plannedMinutes: 20 + next(9) * 5)
             if brewing, index == 0 {
+                // As if Start had just been pressed.
+                let now = Date()
                 task.status = .brewing
-                task.brewingSince = Date()
+                task.brewingSince = now
+                task.fixedStart = LocalTime(now, in: .autoupdatingCurrent)
+                plan.startTime = task.fixedStart
             }
             plan.tasks.append(task)
         }

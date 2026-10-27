@@ -147,8 +147,9 @@ public enum PlanEngine {
 
     /// Calendar drag and drop: fixes a pending task to start at `time`, and moves it among the
     /// pending tasks so the order follows the times. `schedule` is the plan's current schedule.
-    /// It stays after every task that isn't pending (finished or active), and goes before the
-    /// first other pending task that starts at `time` or later.
+    /// It stays after every task that isn't pending (finished or active). Dropped on the upper
+    /// half of another pending block, it goes before that block, pushing it down; on the lower
+    /// half, after it.
     public static func pin(
         taskID: UUID,
         at time: LocalTime,
@@ -160,12 +161,52 @@ public enum PlanEngine {
         var task = plan.tasks.remove(at: index)
         task.fixedStart = time
         let date = plan.date.date(at: time, in: calendar)
-        let starts = Dictionary(schedule.map { ($0.taskID, $0.start) }, uniquingKeysWith: { first, _ in first })
+        let blocks = Dictionary(schedule.map { ($0.taskID, $0) }, uniquingKeysWith: { first, _ in first })
         let afterFixed = (plan.tasks.lastIndex { $0.status != .pending }).map { $0 + 1 } ?? 0
         let later = plan.tasks.indices.first { position in
-            position >= afterFixed && (starts[plan.tasks[position].id] ?? .distantFuture) >= date
+            guard position >= afterFixed else { return false }
+            guard let block = blocks[plan.tasks[position].id] else { return true }
+            return date < block.start + block.end.timeIntervalSince(block.start) / 2
         }
         plan.tasks.insert(task, at: later ?? plan.tasks.count)
+    }
+
+    /// Calendar: dragging a block's bottom edge. The block ends at `end` instead, so its planned
+    /// minutes change by the difference (whole minutes). It keeps at least a minute, and an
+    /// active block at least a minute from `now`, so a drag can't finish it by accident.
+    public static func resize(
+        taskID: UUID,
+        end: Date,
+        in plan: inout DayPlan,
+        schedule: [ScheduledBlock],
+        now: Date?
+    ) {
+        guard let index = plan.tasks.firstIndex(where: { $0.id == taskID && !$0.isFinished }),
+              let block = schedule.first(where: { $0.taskID == taskID })
+        else { return }
+        var earliest = block.start + 60
+        if let now, plan.tasks[index].status != .pending {
+            earliest = max(earliest, now + 60)
+        }
+        let delta = Int((max(end, earliest).timeIntervalSince(block.end) / 60).rounded())
+        adjust(taskID: taskID, byMinutes: delta, in: &plan)
+    }
+
+    /// Calendar: dragging a pending block's top edge. It's pinned to start at `start` (see
+    /// `pin`) and keeps its end, so it gets longer or shorter. It keeps at least a minute.
+    public static func resize(
+        taskID: UUID,
+        start: LocalTime,
+        in plan: inout DayPlan,
+        schedule: [ScheduledBlock],
+        calendar: Calendar
+    ) {
+        guard let task = plan.tasks.first(where: { $0.id == taskID && $0.status == .pending }),
+              let block = schedule.first(where: { $0.taskID == taskID })
+        else { return }
+        let total = Int((block.end.timeIntervalSince(plan.date.date(at: start, in: calendar)) / 60).rounded())
+        pin(taskID: taskID, at: start, in: &plan, schedule: schedule, calendar: calendar)
+        resize(taskID: taskID, to: max(1, total - task.extendedMinutes), in: &plan)
     }
 
     /// Lets the task follow the one before it again.

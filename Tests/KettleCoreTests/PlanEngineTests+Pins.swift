@@ -78,6 +78,67 @@ extension PlanEngineTests {
         #expect(offsets(schedule(plan)) == [[0, 30], [30, 60], [60, 90]])
     }
 
+    func time(_ string: String) throws -> LocalTime {
+        try #require(LocalTime(string))
+    }
+
+    @Test func droppingOnTheUpperHalfOfABlockPushesItDown() throws {
+        // A 09:00–09:30, B 09:30–10:30, C 10:30–11:00.
+        var plan = plan(task("A", 30), task("B", 60), task("C", 30))
+        let id = plan.tasks[2].id
+        try PlanEngine.pin(taskID: id, at: time("09:45"), in: &plan, schedule: schedule(plan), calendar: calendar)
+        #expect(plan.tasks.map(\.title) == ["A", "C", "B"])
+        #expect(offsets(schedule(plan)) == [[0, 30], [45, 75], [75, 135]])
+
+        // On the lower half of B (now 10:15–11:15), C goes after it.
+        try PlanEngine.pin(taskID: id, at: time("11:00"), in: &plan, schedule: schedule(plan), calendar: calendar)
+        #expect(plan.tasks.map(\.title) == ["A", "B", "C"])
+        #expect(offsets(schedule(plan)) == [[0, 30], [30, 90], [120, 150]])
+    }
+
+    // MARK: Resizing by the edges
+
+    @Test func draggingTheBottomEdgeChangesTheDuration() {
+        var plan = plan(task("A", 30), task("B", 30))
+        let id = plan.tasks[0].id
+        PlanEngine.resize(taskID: id, end: nine + 50 * 60, in: &plan, schedule: schedule(plan), now: nil)
+        #expect(plan.tasks[0].plannedMinutes == 50)
+        #expect(offsets(schedule(plan)) == [[0, 50], [50, 80]])
+        // Never shorter than a minute.
+        PlanEngine.resize(taskID: id, end: nine - 3600, in: &plan, schedule: schedule(plan), now: nil)
+        #expect(plan.tasks[0].plannedMinutes == 1)
+    }
+
+    @Test func theActiveBlockCantBeShortenedIntoThePast() {
+        // Brewing since 09:00 with 10 of 45 minutes done at 09:10.
+        let now = nine + 10 * 60
+        var plan = plan(task("A", 45, .brewing, since: nine))
+        PlanEngine.resize(
+            taskID: plan.tasks[0].id, end: nine, in: &plan, schedule: schedule(plan, now: now), now: now
+        )
+        #expect(plan.tasks[0].totalMinutes == 11)
+    }
+
+    @Test func draggingTheTopEdgeMovesTheStartAndKeepsTheEnd() throws {
+        var plan = plan(task("A", 30), task("B", 30))
+        let id = plan.tasks[1].id
+        // B 09:30–10:00 now starts at 09:45.
+        try PlanEngine.resize(taskID: id, start: time("09:45"), in: &plan, schedule: schedule(plan), calendar: calendar)
+        #expect(plan.tasks[1].fixedStart == LocalTime("09:45"))
+        #expect(offsets(schedule(plan)) == [[0, 30], [45, 60]])
+        // Back up to 09:40: longer again.
+        try PlanEngine.resize(taskID: id, start: time("09:40"), in: &plan, schedule: schedule(plan), calendar: calendar)
+        #expect(offsets(schedule(plan)) == [[0, 30], [40, 60]])
+        // Active and finished tasks keep their start.
+        var active = self.plan(task("A", 30, .paused, brewed: 60))
+        let before = active
+        try PlanEngine.resize(
+            taskID: active.tasks[0].id, start: time("08:00"), in: &active, schedule: schedule(active),
+            calendar: calendar
+        )
+        #expect(active == before)
+    }
+
     @Test func pinningStaysAfterFinishedAndActiveTasks() throws {
         var plan = plan(task("A", 30, .done, brewed: 1800), task("B", 30, .paused), task("C", 30))
         let id = plan.tasks[2].id

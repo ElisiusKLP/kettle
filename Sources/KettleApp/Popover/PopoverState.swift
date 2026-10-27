@@ -124,11 +124,10 @@ final class PopoverState {
         edit { PlanEngine.adjust(taskID: taskID, byMinutes: minutes, in: &$0) }
     }
 
-    /// Calendar drag and drop: the task starts at `time` (or as soon after as the blocks before
-    /// it allow), and moves into time order.
-    func pin(_ taskID: UUID, at time: LocalTime, now: Date) {
-        let blocks = calendarBlocks(now: now)
-        edit { PlanEngine.pin(taskID: taskID, at: time, in: &$0, schedule: blocks, calendar: calendar) }
+    /// A calendar drag (move, or resize by an edge), worked out by the calendar view with
+    /// `PlanEngine`.
+    func rearrange(_ change: (inout DayPlan) -> Void) {
+        edit(change)
     }
 
     func unpin(_ taskID: UUID) {
@@ -153,7 +152,9 @@ final class PopoverState {
 
     /// Blocks for the calendar, which always shows times: a day with nothing to anchor it
     /// starts at `PlanEngine.defaultDayStart`.
-    func calendarBlocks(now: Date) -> [ScheduledBlock] {
+    /// `plan` defaults to the shown plan; the calendar passes a changed copy to preview a drag.
+    func calendarBlocks(for plan: DayPlan? = nil, now: Date) -> [ScheduledBlock] {
+        let plan = plan ?? self.plan
         let anchor = PlanEngine.anchor(for: plan, today: today, now: now, calendar: calendar)
             ?? date.date(at: PlanEngine.defaultDayStart, in: calendar)
         return PlanEngine.schedule(for: plan, from: anchor, now: date == today ? now : nil, calendar: calendar)
