@@ -35,8 +35,12 @@ public enum Whistle {
         ("Keep brewing +\(settings.extendMinutes)m", "+\(settings.secondaryExtendMinutes)m")
     }
 
-    /// With notifications off, Kettle plays the whistle itself when the block runs out.
-    public static func playsSoundInApp(_ settings: AppSettings) -> Bool {
-        settings.whistleSound && !settings.notifyOnFinish
+    /// The sound file in the app bundle, made by `kettle-tools whistle`.
+    public static let soundFile = "Whistle.wav"
+
+    /// Whether Kettle plays the whistle itself when the block runs out: when the notification
+    /// won't, because notifications are off in Settings or not allowed (or silenced) by macOS.
+    public static func playsSoundInApp(_ settings: AppSettings, notificationsCanPlaySound: Bool) -> Bool {
+        settings.whistleSound && !(settings.notifyOnFinish && notificationsCanPlaySound)
     }
 }

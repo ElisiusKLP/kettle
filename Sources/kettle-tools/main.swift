@@ -1,12 +1,15 @@
 import Foundation
+import KettleCore
 
-/// Dev-only CLI behind `make icons`, `make appicon` and `make seed`. Never shipped in the app bundle.
+/// Dev-only CLI behind `make icons`, `make appicon`, `make whistle` and `make seed`. Never shipped
+/// in the app bundle.
 let usage = """
 usage: kettle-tools <command>
 
 commands:
   icons [path]  render every icon state into build/icons/preview.png (or path)
   appicon       regenerate Resources/AppIcon.icns (and build/icons/appicon.png to review)
+  whistle       regenerate Resources/Whistle.wav, the time's-up sound
   seed [--brewing]
                 fill the dev data folder (or KETTLE_DATA_DIR) with two weeks of demo
                 data; --brewing starts today's first task
@@ -27,6 +30,10 @@ do {
         let output = URL(fileURLWithPath: "Resources/AppIcon.icns")
         try AppIcon.build(output: output, previewPNG: URL(fileURLWithPath: "build/icons/appicon.png"))
         print("Wrote \(output.path) and build/icons/appicon.png")
+    case "whistle":
+        let output = URL(fileURLWithPath: "Resources/Whistle.wav")
+        try WhistleSound.wav().write(to: output, options: .atomic)
+        print("Wrote \(output.path)")
     default:
         print(usage)
         exit(arguments.isEmpty ? 0 : 64)

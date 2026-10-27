@@ -34,9 +34,11 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin_dir/Kettle" "$app/Contents/MacOS/$executable"
 cp "$plist" "$app/Contents/Info.plist"
-if [[ -f Resources/AppIcon.icns ]]; then
-    cp Resources/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
-fi
+for resource in AppIcon.icns Whistle.wav; do
+    if [[ -f "Resources/$resource" ]]; then
+        cp "Resources/$resource" "$app/Contents/Resources/$resource"
+    fi
+done
 
 if [[ "$config" == release ]]; then
     strip -x "$app/Contents/MacOS/$executable"

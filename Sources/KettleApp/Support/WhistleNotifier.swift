@@ -25,6 +25,9 @@ final class WhistleNotifier: NSObject, UNUserNotificationCenterDelegate {
     private var scheduled: WhistleRequest?
     private var registeredTitles: [String] = []
     private var askedForPermission = false
+    /// Whether macOS lets the whistle notification play its sound, as of the last check. If not,
+    /// the app plays it itself.
+    private(set) var canPlaySound = true
 
     init(model: KettleModel, onChange: @escaping () -> Void) {
         self.model = model
@@ -52,11 +55,13 @@ final class WhistleNotifier: NSObject, UNUserNotificationCenterDelegate {
         }
         guard let request else { return }
         askForPermissionOnce()
+        checkSoundPermission()
 
         let content = UNMutableNotificationContent()
         content.title = request.title
         content.body = request.body
-        content.sound = request.playsSound ? .default : nil
+        content.sound = request
+            .playsSound ? UNNotificationSound(named: UNNotificationSoundName(Whistle.soundFile)) : nil
         content.categoryIdentifier = request.offersDone ? Self.category : Self.finishedCategory
         content.userInfo = [Self.taskKey: request.taskID.uuidString]
         // A calendar trigger fires at the wall-clock time, also after the Mac has slept.
@@ -94,6 +99,13 @@ final class WhistleNotifier: NSObject, UNUserNotificationCenterDelegate {
             if !granted {
                 Log.app.info("Notifications not allowed\(error.map { ": \($0)" } ?? "", privacy: .public)")
             }
+        }
+    }
+
+    private func checkSoundPermission() {
+        center.getNotificationSettings { settings in
+            let allowed = settings.authorizationStatus == .authorized && settings.soundSetting == .enabled
+            DispatchQueue.main.async { self.canPlaySound = allowed }
         }
     }
 

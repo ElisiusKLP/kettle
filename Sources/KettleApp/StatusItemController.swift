@@ -125,10 +125,11 @@ final class StatusItemController: NSObject {
     }
 
     /// The block just ran out: one short wiggle (none with Reduce Motion), and the whistle sound
-    /// when notifications (which bring their own sound) are off.
+    /// when the notification won't play it.
     private func whistle() {
-        if Whistle.playsSoundInApp(model.settings) {
-            NSSound(named: "Glass")?.play()
+        let notificationsCanPlaySound = notifier?.canPlaySound ?? false
+        if Whistle.playsSoundInApp(model.settings, notificationsCanPlaySound: notificationsCanPlaySound) {
+            NSSound(named: (Whistle.soundFile as NSString).deletingPathExtension)?.play()
         }
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion, let shown = ticker.icon else { return }
         // Then settle on what's shown now: whistling in overtime, or the next state once the

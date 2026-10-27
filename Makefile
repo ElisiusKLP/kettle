@@ -16,7 +16,7 @@ endif
 VERSION = $(shell /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
 DEV_APP := build/Kettle Dev.app
 
-.PHONY: bootstrap build test test-release coverage lint format icons appicon dev seed reset-dev logs memcheck profile release clean
+.PHONY: bootstrap build test test-release coverage lint format icons appicon whistle dev seed reset-dev logs memcheck profile release clean
 
 bootstrap:
 	@scripts/bootstrap.sh
@@ -50,6 +50,11 @@ icons:
 
 appicon:
 	swift run kettle-tools appicon
+
+# Regenerates the time's-up sound and plays it.
+whistle:
+	swift run kettle-tools whistle
+	afplay Resources/Whistle.wav
 
 dev:
 	@pkill -x "Kettle Dev" || true

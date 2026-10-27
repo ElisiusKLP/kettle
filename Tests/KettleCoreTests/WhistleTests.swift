@@ -55,10 +55,13 @@ struct WhistleTests {
         settings.whistleSound = false
         let request = try #require(Whistle.request(engine: engine(), now: clock.now, settings: settings))
         #expect(!request.playsSound)
-        #expect(!Whistle.playsSoundInApp(settings))
+        #expect(!Whistle.playsSoundInApp(settings, notificationsCanPlaySound: false))
         settings.whistleSound = true
+        #expect(!Whistle.playsSoundInApp(settings, notificationsCanPlaySound: true))
+        // Notifications not allowed, or their sound turned off in System Settings.
+        #expect(Whistle.playsSoundInApp(settings, notificationsCanPlaySound: false))
         settings.notifyOnFinish = false
-        #expect(Whistle.playsSoundInApp(settings))
+        #expect(Whistle.playsSoundInApp(settings, notificationsCanPlaySound: true))
     }
 
     @Test func doneIsOfferedOnlyInOvertimeMode() throws {
