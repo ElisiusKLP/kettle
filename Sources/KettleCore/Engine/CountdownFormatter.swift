@@ -5,6 +5,8 @@ import Foundation
 ///
 /// - seconds: `23:41`, `1:02:03`, and in overtime `+00:42`, `+1:00:05`
 /// - minutes: `24m`, `1h 05m`, and in overtime `+3m`, `+1h 05m`
+/// - smart: minutes, but seconds for the final minute (`00:59`) and the first minute of
+///   overtime (`+00:42`)
 ///
 /// The countdown rounds up and overtime counts up from `+00:00`, so the display reaches
 /// zero exactly when the kettle whistles.
@@ -15,14 +17,12 @@ public enum CountdownFormatter {
     public static func string(remaining: TimeInterval, precision: TimerPrecision) -> String {
         let overtime = remaining <= 0
         let magnitude = overtime ? -remaining : remaining
-        switch precision {
-        case .seconds:
+        if precision.showsSeconds(remaining: remaining) {
             let seconds = whole(magnitude, roundingUp: !overtime, limit: maximumSeconds)
             return format(sign: overtime, hours: seconds / 3600, minutes: seconds / 60 % 60, seconds: seconds % 60)
-        case .minutes:
-            let minutes = whole(magnitude / 60, roundingUp: !overtime, limit: maximumSeconds / 60)
-            return format(sign: overtime, hours: minutes / 60, minutes: minutes % 60, seconds: nil)
         }
+        let minutes = whole(magnitude / 60, roundingUp: !overtime, limit: maximumSeconds / 60)
+        return format(sign: overtime, hours: minutes / 60, minutes: minutes % 60, seconds: nil)
     }
 
     private static func whole(_ value: Double, roundingUp: Bool, limit: Int) -> Int {

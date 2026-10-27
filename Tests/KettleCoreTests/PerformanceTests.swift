@@ -74,7 +74,7 @@ extension PerformanceTests {
             if update.title != nil || update.icon != nil {
                 changes += 1
             }
-            _ = MenubarTicker.delayUntilNextChange(engine: engine, now: clock.now, precision: settings.timerPrecision)
+            _ = MenubarTicker.nextTick(engine: engine, now: clock.now, precision: settings.timerPrecision)
         }
         return changes
     }
@@ -95,7 +95,8 @@ extension PerformanceTests {
         .enabled(if: isOptimized, "allocation counts are only meaningful in optimised builds: make test-release")
     )
     func steadyStateTickingDoesNotAllocate() {
-        let settings = AppSettings()
+        var settings = AppSettings()
+        settings.timerPrecision = .seconds // the worst case: a new title every second
         // Run every code path once first, so one-time lazy initialisation isn't counted.
         let warmUpClock = FakeClock(.iso("2026-10-26T08:00:00Z"))
         var warmUpTicker = MenubarTicker()

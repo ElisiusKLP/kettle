@@ -5,7 +5,22 @@ public enum MenubarFormat: String, Codable, Sendable, CaseIterable {
 }
 
 public enum TimerPrecision: String, Codable, Sendable, CaseIterable {
-    case seconds, minutes
+    /// Minutes, switching to seconds for the final minute and the first minute of overtime.
+    /// Nearly as light as `.minutes`, with a live countdown to the whistle.
+    case smart
+    /// Seconds all the time. Redrawing the menubar every second costs about 0.4% CPU.
+    case seconds
+    /// Minutes all the time: the lowest energy use.
+    case minutes
+
+    /// Whether the countdown shows seconds with `remaining` seconds left (negative in overtime).
+    public func showsSeconds(remaining: TimeInterval) -> Bool {
+        switch self {
+        case .seconds: true
+        case .minutes: false
+        case .smart: remaining > 0 ? remaining <= 60 : -remaining < 60
+        }
+    }
 }
 
 public enum Weekday: String, Codable, Sendable, CaseIterable {
@@ -27,8 +42,7 @@ public struct AppSettings: StoredDocument, Hashable {
     public var secondaryExtendMinutes = 5
     public var autoStartNext = false
     public var menubarFormat = MenubarFormat.iconAndTime
-    /// `.minutes` ticks once a minute, for lower CPU use.
-    public var timerPrecision = TimerPrecision.seconds
+    public var timerPrecision = TimerPrecision.smart
     public var whistleSound = true
     public var notifyOnFinish = true
     public var launchAtLogin = false

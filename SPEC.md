@@ -117,7 +117,7 @@ struct AppSettings {
     secondaryExtendMinutes: Int = 5
     autoStartNext: Bool = false
     menubarFormat: MenubarFormat = .iconAndTime   // .iconOnly, .iconAndTime, .iconTitleAndTime
-    timerPrecision: TimerPrecision = .seconds     // .seconds or .minutes (lower CPU)
+    timerPrecision: TimerPrecision = .smart       // .smart, .seconds or .minutes (see section 8)
     whistleSound: Bool = true
     notifyOnFinish: Bool = true
     launchAtLogin: Bool = false
@@ -246,14 +246,14 @@ Kettle sits in the background all day, so being light is a feature. These budget
 | Popover open | ≤ 50 MB |
 | Stats window open | ≤ 70 MB |
 | 10 s after closing the popover or stats window | back within 3 MB of the idle baseline |
-| Average CPU while brewing, popover closed | < 0.1% |
-| Idle wake-ups | ≤ 1 per second in seconds mode, ≤ 1 per minute in minutes mode |
+| Average CPU while brewing, popover closed | < 0.1% with the default smart precision (seconds precision is opt-in and costs about 0.4%) |
+| Idle wake-ups | ≤ 1 per minute in smart and minutes mode (≤ 1 per second in smart mode's final minute and in seconds mode) |
 
 To meet them:
 
 1. **Use `NSStatusItem` instead of `MenuBarExtra`.** The menubar shows only an image and a short title string. No SwiftUI views live in the menubar.
 2. **Create views on demand and release them.** Create the popover's `NSHostingController` when the popover opens, and set it to `nil` in `popoverDidClose`. The Settings and Stats windows are created on demand and released on close (`isReleasedWhenClosed`, with no strong references kept). Swift Charts code only runs inside the Stats window.
-3. **Use one cheap timer.** Use a single `DispatchSourceTimer` aligned to the next whole second (or minute), with `leeway` of 200 ms (or 5 s in minutes mode). Don't use per-view timers, and don't use Combine pipelines that tick while the popover is closed.
+3. **Use one cheap timer.** Use a single `DispatchSourceTimer` aligned to the next whole second (or minute) of the countdown, with `leeway` of 200 ms when it shows seconds (or 5 s when it shows minutes). Any visible change to the status item costs about 4 ms of CPU, so by default (`.smart`) the countdown shows minutes (`24m`) and switches to seconds only for the final minute (`00:59`) and the first minute of overtime (`+00:42`). Don't use per-view timers, and don't use Combine pipelines that tick while the popover is closed.
 4. **Write only when something changed.** Set `statusItem.button.title` only when the formatted string differs from the last one, and set the image only when the steam step changes.
 5. **Sleep with the Mac.** Listen for `NSWorkspace.screensDidSleepNotification` and `willSleepNotification`, stop ticking, and recompute from timestamps on wake. Don't disable App Nap.
 6. **Keep data small.** Follow the in-memory rule in section 7. Stats read `daily-totals.json`, not raw sessions.
@@ -286,7 +286,7 @@ If a feature can't fit these budgets, it stays out of v1 or becomes opt-in, and 
 | `make seed` | Fills the dev data folder with two weeks of realistic demo data |
 | `make reset-dev` | Deletes the dev data folder only (asks for confirmation) |
 | `make logs` | Streams `log stream --predicate 'subsystem == "io.github.kettle"'` |
-| `make memcheck` | Builds release with the dev bundle id, seeds data, launches the app, starts a task, waits 30 s, then reports physical footprint (`footprint`, falling back to `ps -o rss=`) and CPU, and **fails if over budget** |
+| `make memcheck` | Builds release with the dev bundle id, seeds data, launches the app, starts a task, waits 30 s (120 s in smart mode), then reports physical footprint (`footprint`, falling back to `ps -o rss=`), CPU and idle wake-ups in smart and seconds precision, and **fails if over budget** |
 | `make profile` | Launches the dev release build under Instruments (`xcrun xctrace record --template 'Allocations'`) and saves a trace to `build/traces/` |
 | `make release` | Builds an optimised release, bundles `build/Kettle.app`, ad-hoc signs it, and zips it into `build/Kettle-<version>.zip` |
 | `make clean` | Removes `.build/` and `build/` |

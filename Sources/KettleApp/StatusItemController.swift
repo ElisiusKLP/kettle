@@ -58,9 +58,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             statusItem.button?.title = title
         }
 
-        let precision = model.settings.timerPrecision
-        if let delay = MenubarTicker.delayUntilNextChange(engine: model.engine, now: now, precision: precision) {
-            timer.schedule(after: delay, leeway: precision == .seconds ? .milliseconds(200) : .seconds(5))
+        if let next = MenubarTicker.nextTick(engine: model.engine, now: now, precision: model.settings.timerPrecision) {
+            timer.schedule(after: next.delay, leeway: .milliseconds(Int(next.leeway * 1000)))
         } else {
             let midnight = LocalDate(now, in: .autoupdatingCurrent).adding(days: 1).date(in: .autoupdatingCurrent)
             timer.schedule(after: midnight.timeIntervalSince(now) + 1, leeway: .seconds(60))

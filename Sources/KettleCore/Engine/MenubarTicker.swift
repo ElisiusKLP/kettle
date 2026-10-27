@@ -48,21 +48,31 @@ public struct MenubarTicker {
         return settings.menubarFormat == .iconTitleAndTime ? task.title + " " + countdown : countdown
     }
 
-    /// Seconds from now until the countdown next changes, or nil when nothing is brewing (no
-    /// ticking at all). Ticks align to the countdown's own second or minute boundaries.
-    public static func delayUntilNextChange(
-        engine: TimerEngine,
-        now: Date,
-        precision: TimerPrecision
-    ) -> TimeInterval? {
+    /// When to wake up next, and how late the wake-up may be.
+    public struct NextTick: Equatable {
+        public let delay: TimeInterval
+        public let leeway: TimeInterval
+    }
+
+    /// Leeway for ticks that show seconds, and for ticks that only show minutes.
+    public static let fineLeeway: TimeInterval = 0.2
+    public static let coarseLeeway: TimeInterval = 5
+
+    /// The next tick, or nil when nothing is brewing (no ticking at all). Ticks land just after
+    /// the countdown's own second or minute boundaries, so each one changes the title. The tick
+    /// that switches a smart countdown to seconds gets the fine leeway, so the last minute
+    /// starts on time.
+    public static func nextTick(engine: TimerEngine, now: Date, precision: TimerPrecision) -> NextTick? {
         guard engine.isBrewing, let remaining = engine.remainingSeconds(at: now) else { return nil }
-        let unit: TimeInterval = precision == .seconds ? 1 : 60
+        let unit: TimeInterval = precision.showsSeconds(remaining: remaining) ? 1 : 60
         // Counting down, the display changes when `remaining` crosses a multiple of `unit`;
         // in overtime, when the overdue time does.
         let position = (remaining > 0 ? remaining : -remaining) / unit
         let fraction = position - position.rounded(.down)
         let steps = remaining > 0 ? (fraction > 0 ? fraction : 1) : 1 - fraction
         // Land just after the boundary so rounding shows the new value.
-        return steps * unit + 0.005
+        let delay = steps * unit + 0.005
+        let fine = unit == 1 || precision.showsSeconds(remaining: remaining - delay)
+        return NextTick(delay: delay, leeway: fine ? fineLeeway : coarseLeeway)
     }
 }

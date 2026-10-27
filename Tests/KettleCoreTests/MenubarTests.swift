@@ -20,10 +20,24 @@ struct CountdownFormatterTests {
     func minutesPrecision(remaining: Double, expected: String) {
         #expect(CountdownFormatter.string(remaining: remaining, precision: .minutes) == expected)
     }
+
+    @Test(arguments: [
+        (1421.0, "24m"), (120.0, "2m"), (61.0, "2m"), (60.0, "01:00"), (59.5, "01:00"), (1.0, "00:01"),
+        (0.0, "+00:00"), (-59.9, "+00:59"), (-60.0, "+1m"), (-3900.0, "+1h 05m"), (7200.0, "2h 00m"),
+    ])
+    func smartPrecisionShowsSecondsOnlyAroundTheWhistle(remaining: Double, expected: String) {
+        #expect(CountdownFormatter.string(remaining: remaining, precision: .smart) == expected)
+    }
 }
 
 struct MenubarTickerTests {
     let clock = FakeClock(.iso("2026-10-26T08:00:00Z"))
+    /// Seconds precision: a new title every second.
+    let seconds: AppSettings = {
+        var settings = AppSettings()
+        settings.timerPrecision = .seconds
+        return settings
+    }()
 
     func engine(_ minutes: Int = 45, title: String = "Write report", start: Bool = true) -> TimerEngine {
         var engine = TimerEngine(
@@ -39,15 +53,15 @@ struct MenubarTickerTests {
     @Test func firstUpdateReportsEverythingThenOnlyChanges() {
         var ticker = MenubarTicker()
         let engine = engine()
-        let first = ticker.update(engine: engine, now: clock.now, settings: AppSettings())
+        let first = ticker.update(engine: engine, now: clock.now, settings: seconds)
         #expect(first == .init(icon: .brewing(.five), title: "45:00"))
-        #expect(ticker.update(engine: engine, now: clock.now, settings: AppSettings()) == .init())
+        #expect(ticker.update(engine: engine, now: clock.now, settings: seconds) == .init())
         clock.advance(by: 1)
-        #expect(ticker.update(engine: engine, now: clock.now, settings: AppSettings()) == .init(title: "44:59"))
+        #expect(ticker.update(engine: engine, now: clock.now, settings: seconds) == .init(title: "44:59"))
     }
 
     @Test func formatsFollowTheSetting() {
-        var settings = AppSettings()
+        var settings = seconds
         let engine = engine()
         settings.menubarFormat = .iconOnly
         #expect(MenubarTicker.title(engine: engine, now: clock.now, settings: settings).isEmpty)
@@ -59,16 +73,16 @@ struct MenubarTickerTests {
 
     @Test func idleShowsOnlyTheIcon() {
         var ticker = MenubarTicker()
-        let update = ticker.update(engine: engine(start: false), now: clock.now, settings: AppSettings())
+        let update = ticker.update(engine: engine(start: false), now: clock.now, settings: seconds)
         #expect(update == .init(icon: .idle, title: ""))
     }
 
     @Test func resetReportsEverythingAgain() {
         var ticker = MenubarTicker()
         let engine = engine()
-        _ = ticker.update(engine: engine, now: clock.now, settings: AppSettings())
+        _ = ticker.update(engine: engine, now: clock.now, settings: seconds)
         ticker.reset()
-        #expect(ticker.update(engine: engine, now: clock.now, settings: AppSettings()).icon == .brewing(.five))
+        #expect(ticker.update(engine: engine, now: clock.now, settings: seconds).icon == .brewing(.five))
     }
 
     @Test func titleChangesOncePerSecondAndIconOncePerStep() {
@@ -77,7 +91,7 @@ struct MenubarTickerTests {
         var titles = 0
         var icons = 0
         for _ in 0 ..< 1205 { // 2 minutes in 0.1 s steps, then just into overtime
-            let update = ticker.update(engine: engine, now: clock.now, settings: AppSettings())
+            let update = ticker.update(engine: engine, now: clock.now, settings: seconds)
             titles += update.title == nil ? 0 : 1
             icons += update.icon == nil ? 0 : 1
             clock.advance(by: 0.1)
@@ -90,11 +104,11 @@ struct MenubarTickerTests {
 
     @Test func nothingTicksWhenIdleOrPaused() {
         var engine = engine(start: false)
-        #expect(MenubarTicker.delayUntilNextChange(engine: engine, now: clock.now, precision: .seconds) == nil)
+        #expect(MenubarTicker.nextTick(engine: engine, now: clock.now, precision: .seconds) == nil)
         engine.start()
         clock.advance(by: 10)
         engine.pause()
-        #expect(MenubarTicker.delayUntilNextChange(engine: engine, now: clock.now, precision: .seconds) == nil)
+        #expect(MenubarTicker.nextTick(engine: engine, now: clock.now, precision: .seconds) == nil)
     }
 
     @Test(arguments: [
@@ -107,7 +121,7 @@ struct MenubarTickerTests {
     func ticksAlignToTheCountdownBoundaries(elapsed: Double, precision: TimerPrecision, expected: Double) throws {
         let engine = engine()
         let now = clock.now + elapsed
-        let delay = try #require(MenubarTicker.delayUntilNextChange(engine: engine, now: now, precision: precision))
+        let delay = try #require(MenubarTicker.nextTick(engine: engine, now: now, precision: precision)).delay
         #expect(abs(delay - expected - 0.005) < 0.0001)
         // Just after the tick, the countdown shows a new value.
         let before = try CountdownFormatter.string(
@@ -121,13 +135,42 @@ struct MenubarTickerTests {
         #expect(before != after)
     }
 
+    @Test(arguments: [
+        // (seconds into a 45-minute block, expected delay, fine leeway?)
+        (0.0, 60.0, false), (2520.0, 60.0, false), (2580.0, 60.0, true), (2610.0, 30.0, true), (2640.0, 1.0, true),
+        (2650.0, 1.0, true), (2730.0, 1.0, true), (2759.5, 0.5, true), (2760.5, 59.5, false),
+    ])
+    func smartTicksOncePerMinuteUntilTheFinalMinute(elapsed: Double, expected: Double, fine: Bool) throws {
+        let tick = try #require(MenubarTicker.nextTick(engine: engine(), now: clock.now + elapsed, precision: .smart))
+        #expect(abs(tick.delay - expected - 0.005) < 0.0001)
+        #expect(tick.leeway == (fine ? MenubarTicker.fineLeeway : MenubarTicker.coarseLeeway))
+    }
+
+    @Test func smartWakesAboutOncePerMinutePlusTheFinalMinute() throws {
+        let engine = engine()
+        var now = clock.now
+        var wakeUps = 0
+        // The whole 45-minute block plus 5 minutes of overtime.
+        while now < clock.now + 3000 {
+            now += try #require(MenubarTicker.nextTick(engine: engine, now: now, precision: .smart)).delay
+            wakeUps += 1
+        }
+        // 44 minute ticks, 60 + 60 second ticks around the whistle, then 4 minute ticks.
+        #expect(wakeUps <= 44 + 60 + 60 + 4 + 2)
+        #expect(wakeUps >= 44 + 60 + 60 + 4 - 2)
+    }
+
+    @Test func smartIsTheDefault() {
+        #expect(AppSettings().timerPrecision == .smart)
+    }
+
     @Test func atMostOneWakeUpPerSecondOrMinute() throws {
         for (precision, unit) in [(TimerPrecision.seconds, 1.0), (.minutes, 60.0)] {
             let engine = engine()
             var now = clock.now
             var wakeUps = 0
             while now < clock.now + 3000 {
-                now += try #require(MenubarTicker.delayUntilNextChange(engine: engine, now: now, precision: precision))
+                now += try #require(MenubarTicker.nextTick(engine: engine, now: now, precision: precision)).delay
                 wakeUps += 1
             }
             #expect(Double(wakeUps) <= 3000 / unit + 1)

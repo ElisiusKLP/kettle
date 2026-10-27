@@ -258,7 +258,7 @@ Seconds mode runs twice for 30 s each, after a 10 s settle, and the lower-CPU ru
 **Chose:** `kettle-tools seed [--brewing]` was built in step 8, not 13, because memcheck needs it. It writes deterministic demo data (6 labels, one archived; 14 past days with sessions; today; tomorrow) into the dev folder or `KETTLE_DATA_DIR`, rebuilds the stats cache, and refuses to write into a folder that already has data.
 **Why:** memcheck must "seed data" (§10), and refusing to overwrite protects whatever is in the dev folder.
 
-### OPEN: seconds-mode CPU budget
+### Seconds-mode CPU budget (resolved below)
 **Found:** footprint is well within budget (11–16 MB of 25 MB). But **any visible change to an `NSStatusItem` once a second costs about 0.35–0.45% CPU** in the release build:
 
 | Release build, 20 s windows | CPU |
@@ -271,3 +271,7 @@ Seconds mode runs twice for 30 s each, after a 10 s settle, and the lower-CPU ru
 | Minutes mode | 0.00% |
 
 Our own tick allocates nothing and is negligible; the cost is AppKit rendering and committing the status item. The §8 budget of < 0.1% average CPU can't be met with a per-second countdown. Under §8 ("it stays out of v1 or becomes opt-in"), a decision is needed. Until then `make memcheck` fails on seconds-mode CPU. Minutes-mode readings were also noisy (0.00% / 0 extra wake-ups in one run; 0.33% / 16 per minute in another), which suggests the menubar sometimes asks every status item to redraw. That needs a measurement on an otherwise idle machine.
+
+### Smart precision is the default
+**Chose (with the maintainer, at the step 8 checkpoint):** a new `TimerPrecision.smart`, which is the default. It shows minutes (`24m`) and switches to seconds for the final minute (`00:59`) and the first minute of overtime (`+00:42`). `.seconds` and `.minutes` stay selectable. The tick that enters the final minute gets the fine (200 ms) leeway, so the seconds start on time. SPEC §4, §8 and §10 and the README were updated to match. `make memcheck` enforces the budget for smart mode and reports seconds-mode CPU for information (still checking its wake-ups).
+**Why:** a live per-second countdown costs about 0.4% CPU in AppKit rendering alone. Smart keeps the energy use of minutes mode for almost the whole block, and still gives the whistle a live final countdown.

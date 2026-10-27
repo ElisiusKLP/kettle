@@ -2,6 +2,10 @@
 # Measures Kettle Dev (release build) idle in the menubar with a task brewing, and fails if
 # it's over the SPEC section 8 budget. Uses a throwaway data folder, never your dev data.
 #
+# The budget applies to the default smart precision (minutes, seconds in the final minute),
+# which outside the final minute behaves exactly like minutes mode. Seconds precision is
+# opt-in: its CPU use is reported for information, and its wake-ups are checked.
+#
 #   scripts/memcheck.sh            (normally via make memcheck)
 #
 # Needs a GUI session (it launches the app), so it runs locally rather than in CI.
@@ -14,7 +18,7 @@ budget_footprint_mb=25
 budget_cpu_percent=0.1
 budget_wakeups_per_second=1
 settle_seconds=10
-# SPEC section 10 says 30 s. Minutes mode ticks once a minute, so its window is longer,
+# SPEC section 10 says 30 s. Smart mode ticks once a minute, so its window is longer,
 # otherwise a single stray wake-up would read as 2 per minute.
 window_seconds=30
 minutes_window_seconds=120
@@ -89,10 +93,7 @@ $(( $(idle_wakeups "$pid") - wakeups_start )) $(( $(date +%s) - started ))"
 }
 
 step "Measuring with the popover closed and a task brewing"
-# Seconds mode runs twice and the run with less CPU counts: CPU use is noisy while the system
-# settles (Spotlight indexing the fresh data folder, build processes exiting).
-results=$( (measure seconds "$window_seconds"; measure seconds "$window_seconds") | sort -k3 -g | head -1
-    measure minutes "$minutes_window_seconds")
+results=$(measure smart "$minutes_window_seconds"; measure seconds "$window_seconds")
 
 report=$(echo "$results" | awk -v mb="$budget_footprint_mb" -v cpu="$budget_cpu_percent" '
     function row(name, value, unit, op, limit, ok) {
@@ -101,15 +102,19 @@ report=$(echo "$results" | awk -v mb="$budget_footprint_mb" -v cpu="$budget_cpu_
     }
     {
         precision = $1; footprint = $2 / 1048576; cpu_percent = $3 / $5 * 100
-        # Budget: <= 1 wake-up per second in seconds mode, <= 1 per minute in minutes mode.
-        if (precision == "seconds") { wakeups = $4 / $5; unit = "/s" } else { wakeups = $4 / $5 * 60; unit = "/min" }
-        row("Idle footprint (" precision " mode)", footprint, "MB", "<=", mb, footprint <= mb)
-        row("Average CPU (" precision " mode)", cpu_percent, "%", "<", cpu, cpu_percent < cpu)
-        row("Idle wake-ups (" precision " mode)", wakeups, unit, "<=", 1, wakeups <= 1)
+        row("Idle footprint (" precision ")", footprint, "MB", "<=", mb, footprint <= mb)
+        if (precision == "seconds") {
+            # Opt-in: redrawing the menubar every second costs ~0.4% CPU (SPEC section 8).
+            printf "%-40s %9.3f %-5s (opt-in, not budgeted)\n", "Average CPU (seconds)", cpu_percent, "%"
+            row("Idle wake-ups (seconds)", $4 / $5, "/s", "<=", 1, $4 / $5 <= 1)
+        } else {
+            row("Average CPU (" precision ", default)", cpu_percent, "%", "<", cpu, cpu_percent < cpu)
+            row("Idle wake-ups (" precision ")", $4 / $5 * 60, "/min", "<=", 1, $4 / $5 * 60 <= 1)
+        }
     }
     END { exit failed }') && status=0 || status=$?
 
-step "Results (release build; seconds mode best of 2 x ${window_seconds}s, minutes mode ${minutes_window_seconds}s)"
+step "Results (release build; smart ${minutes_window_seconds}s, seconds ${window_seconds}s)"
 echo "$report"
 echo "$report" > "$work/report.txt"
 if (( status != 0 )); then

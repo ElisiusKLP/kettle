@@ -9,7 +9,7 @@ Kettle is a minimalist, open-source macOS menubar app. Each morning you line up 
 ## Features
 
 - **Day planner in your menubar.** Add tasks, set durations, and drag to reorder. Start and end times update automatically.
-- **A kettle that cools down.** The menubar shows the kettle and a countdown (`23:41`). Steam rises while you work and fades as the block runs out.
+- **A kettle that cools down.** The menubar shows the kettle and a countdown (`24m`, then `00:59` in the final minute). Steam rises while you work and fades as the block runs out.
 - **Whistle and keep brewing.** When time's up you get a notification. Mark the task done, or keep brewing for a few more minutes (amount set in Settings), and the rest of your day shifts along.
 - **Labels and stats.** Tag tasks like `#work` or `#health`, then see time per label by day, week, or month, along with planned vs. actual time.
 - **Quick add.** Type `Write report 45m #work` and press Return.
@@ -37,7 +37,7 @@ To build it yourself, see [DEVELOPMENT.md](DEVELOPMENT.md). Requires macOS 14 So
 | `⌘E` | Keep brewing (extend) |
 | `⌘←` / `⌘→` | Previous / next day |
 
-Use **Settings** to set the extend duration, auto-start behaviour, menubar format, timer precision (minutes mode uses even less energy), labels, and data export.
+Use **Settings** to set the extend duration, auto-start behaviour, menubar format, timer precision (seconds all the time if you like, at a small energy cost), labels, and data export.
 
 ## Your data
 
