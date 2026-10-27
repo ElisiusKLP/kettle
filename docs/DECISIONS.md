@@ -508,3 +508,7 @@ Reordering in the list, carrying a task over, and a task going back to pending (
 **Found:** a paused block is drawn from where it started to now plus the time it has left. Moving it changed only its start, so dragging it up into earlier, finished blocks stretched it: the further up, the longer, with its end fixed. The block editor had the same mix-up and would have saved the stretched span as the task's length.
 **Chose:** moving a paused block sets when it resumes, never before now, and it then lasts exactly the time it has left. Dragged up past now, it stays at now. In the editor, a paused block's From is when it resumes (now, if it started earlier) and its Length is shown as "Time left". Saving sets the total to the time brewed plus that. A probe dragging every movable block upward step by step confirmed pending blocks never changed length; a test now checks a paused block doesn't either.
 **Why:** reported by the maintainer.
+
+### Bigger resize zones with visible handles
+**Chose:** a block's bottom resize zone is a quarter of its height on screen, 6–12 pt (it was a fixed 6 pt, and blocks under 26 pt had none). The top zone (pending blocks 30 pt or taller) is the same size. Even the shortest blocks (18 pt) get a 6 pt bottom zone, which leaves 12 pt for moving. On hover, a small bar in the label's colour marks each edge that resizes. The cursor zones and the gesture's zone test share one function.
+**Why:** reported by the maintainer: moving and stacking worked, but the edges were very hard to hit.

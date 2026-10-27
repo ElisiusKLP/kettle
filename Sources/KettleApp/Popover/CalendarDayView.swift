@@ -21,15 +21,16 @@ struct CalendarDayView: View {
     static let minimumBlockHeight: CGFloat = 18
     /// Space between blocks that touch.
     static let blockGap: CGFloat = 1
-    /// Blocks shorter than this on screen have no resize edges, so they're easy to move.
-    static let minimumResizableHeight: CGFloat = 26
+    /// Blocks shorter than this on screen have no top resize zone, so they stay easy to move.
+    static let minimumTopEdgeHeight: CGFloat = 30
     /// Room above midnight's mark so its label isn't cut off.
     static let topInset: CGFloat = 8
     /// Blocks running past midnight extend the calendar, up to noon the next day.
     static let maximumMinutes = 36 * 60
 
-    /// Height of the strip at the top and bottom of a block that resizes it.
-    static let edgeHeight: CGFloat = 6
+    /// Resize zones are this share of a block's height, within `edgeHeights`.
+    static let edgeShare: CGFloat = 0.25
+    static let edgeHeights: ClosedRange<CGFloat> = 6 ... 12
     /// The calendar's own coordinate space. Drags are measured in it: it doesn't move while a
     /// block does, and block frames are known in it.
     static let space = "calendar"
@@ -129,7 +130,7 @@ struct CalendarDayView: View {
     ) -> some View {
         let top = frame.top
         let height = frame.height
-        let resizable = height >= Self.minimumResizableHeight
+        let edges = edgeZones(task, height: height)
         let dragged = drag?.taskID == task.id ? drag?.kind : nil
         let editable = CalendarEdit.canMove(task)
         let step = state.settings.resizeStepMinutes
@@ -141,19 +142,20 @@ struct CalendarDayView: View {
             isDragged: dragged != nil,
             showsDetails: height >= 30,
             showsLengthButtons: editable && hovered == task.id && drag == nil,
+            handles: hovered == task.id && drag == nil ? (edges.top > 0, edges.bottom > 0) : (false, false),
             corner: cornerText(task, block, dragged: dragged),
             state: state,
             nudge: { direction in state.nudge(task.id, by: direction * step, now: now) }
         )
         .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
         .overlay(alignment: .top) {
-            if resizable, task.status == .pending {
-                edge()
+            if edges.top > 0 {
+                edge(height: edges.top)
             }
         }
         .overlay(alignment: .bottom) {
-            if resizable, CalendarEdit.canResize(task) {
-                edge()
+            if edges.bottom > 0 {
+                edge(height: edges.bottom)
             }
         }
         .padding(.leading, Self.gutterWidth + 2)
@@ -169,11 +171,21 @@ struct CalendarDayView: View {
         .gesture(blockGesture(task))
     }
 
-    /// The strip along a block's top or bottom edge: only shows the resize cursor. The block's
+    /// The resize zones' heights for a block drawn `height` tall (0: none). The bottom zone is a
+    /// quarter of the block, 6–12 pt, leaving the rest for moving. The top zone (pending blocks
+    /// only) needs a taller block, so short ones stay easy to move.
+    private func edgeZones(_ task: PlanTask, height: CGFloat) -> (top: CGFloat, bottom: CGFloat) {
+        let zone = min(max(height * Self.edgeShare, Self.edgeHeights.lowerBound), Self.edgeHeights.upperBound)
+        let top = task.status == .pending && height >= Self.minimumTopEdgeHeight ? zone : 0
+        let bottom = CalendarEdit.canResize(task) ? zone : 0
+        return (top, bottom)
+    }
+
+    /// The zone along a block's top or bottom edge: only shows the resize cursor. The block's
     /// one gesture decides what a drag does from where it starts.
-    private func edge() -> some View {
+    private func edge(height: CGFloat) -> some View {
         Color.clear
-            .frame(height: Self.edgeHeight)
+            .frame(height: height)
             .contentShape(Rectangle())
             .onHover { inside in
                 if inside {
@@ -219,13 +231,12 @@ struct CalendarDayView: View {
         guard CalendarEdit.canMove(task), let frame = layout(state.calendarBlocks(now: now))[task.id] else {
             return nil
         }
-        if frame.height >= Self.minimumResizableHeight {
-            if task.status == .pending, y < frame.top + Self.edgeHeight {
-                return .top
-            }
-            if CalendarEdit.canResize(task), y > frame.top + frame.height - Self.edgeHeight {
-                return .bottom
-            }
+        let edges = edgeZones(task, height: frame.height)
+        if y < frame.top + edges.top {
+            return .top
+        }
+        if y > frame.top + frame.height - edges.bottom {
+            return .bottom
         }
         return .move
     }

@@ -18,6 +18,8 @@ struct CalendarBlock: View {
     let showsDetails: Bool
     /// − and + for the length, on hover.
     let showsLengthButtons: Bool
+    /// Grab bars at the edges that resize, on hover.
+    let handles: (top: Bool, bottom: Bool)
     let corner: Corner
     let state: PopoverState
     /// Changes the length by one step: -1 shorter, 1 longer.
@@ -77,6 +79,16 @@ struct CalendarBlock: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 4))
+        .overlay(alignment: .top) {
+            if handles.top {
+                handle
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if handles.bottom {
+                handle
+            }
+        }
         .shadow(color: .black.opacity(isDragged ? 0.25 : 0), radius: 3, y: 1)
         .contentShape(Rectangle())
         .contextMenu { TaskMenu(task: task, state: state) }
@@ -90,6 +102,15 @@ struct CalendarBlock: View {
         case .brewing: "Brewing. Keep brewing adds time."
         case .done, .skipped: ""
         }
+    }
+
+    /// A small bar showing where to grab to resize.
+    private var handle: some View {
+        Capsule()
+            .fill(color.opacity(0.8))
+            .frame(width: 22, height: 3)
+            .padding(.vertical, 2)
+            .allowsHitTesting(false)
     }
 
     private var lengthButtons: some View {
