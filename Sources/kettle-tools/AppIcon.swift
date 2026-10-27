@@ -20,7 +20,7 @@ enum AppIcon {
         ] as CFArray,
         locations: [0, 0.32, 0.62, 1]
     )!
-    static let steam = CGColor(gray: 0, alpha: 1)
+    static let steam = CGColor(srgbRed: 0.66, green: 0.68, blue: 0.71, alpha: 1)
 
     static func build(output: URL, previewPNG: URL?) throws {
         let iconset = FileManager.default.temporaryDirectory
