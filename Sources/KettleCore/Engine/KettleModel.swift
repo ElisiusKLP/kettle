@@ -147,6 +147,45 @@ public final class KettleModel {
         store.saveSettings(newSettings)
     }
 
+    /// Replaces the labels (rename, recolour, archive, add) from Settings → Labels.
+    public func updateLabels(_ newLabels: [Label]) {
+        guard newLabels != labels else { return }
+        labels = newLabels
+        store.saveLabels(newLabels)
+    }
+
+    // MARK: Data
+
+    public func exportJSON() throws -> Data {
+        try DataTransfer.encode(DataTransfer.export(from: store, exportedAt: clock.now))
+    }
+
+    public func exportCSV() throws -> Data {
+        try Data(DataTransfer.csv(DataTransfer.export(from: store, exportedAt: clock.now), calendar: calendar).utf8)
+    }
+
+    /// Merges an exported JSON file into the data, then reloads labels, settings and the timer's plan.
+    @discardableResult
+    public func importJSON(_ data: Data) throws -> DataTransfer.ImportSummary {
+        let export = try DataTransfer.decode(data)
+        let summary = try DataTransfer.merge(export, into: store, calendar: calendar)
+        try store.flush()
+        try reloadAll(date: engine.plan.date)
+        return summary
+    }
+
+    /// Settings → Data → Delete all data: removes Kettle's files and starts from scratch.
+    public func deleteAllData() throws {
+        try store.deleteAll()
+        try reloadAll(date: today)
+    }
+
+    private func reloadAll(date: LocalDate) throws {
+        labels = try store.loadLabels()
+        settings = try store.loadSettings()
+        engine = try TimerEngine(plan: store.loadPlan(for: date), settings: settings, clock: clock, calendar: calendar)
+    }
+
     // MARK: Days
 
     /// Switches the timer to today's plan once the day has changed and nothing is brewing or

@@ -15,8 +15,9 @@ final class StatusItemController: NSObject {
     private var ticker = MenubarTicker()
     private var power: PowerEvents?
     private var popover: PopoverController?
+    private var settingsWindow: SettingsWindowController?
 
-    init(model: KettleModel, style: KettleIcon.Style) {
+    init(model: KettleModel, style: KettleIcon.Style, dataFolder: URL) {
         self.model = model
         images = KettleIcon.allImages(style: style)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -29,7 +30,14 @@ final class StatusItemController: NSObject {
             button.action = #selector(clicked)
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
-        popover = PopoverController(model: model) { [weak self] in self?.refresh() }
+        settingsWindow = SettingsWindowController(model: model, dataFolder: dataFolder) { [weak self] in
+            self?.settingsDidChange()
+        }
+        popover = PopoverController(
+            model: model,
+            onChange: { [weak self] in self?.refresh() },
+            onOpenSettings: { [weak self] in self?.openSettings() }
+        )
 
         timer.onFire = { [weak self] in self?.tick() }
         power = PowerEvents(
@@ -69,6 +77,17 @@ final class StatusItemController: NSObject {
         }
     }
 
+    /// The format or precision may have changed, so redraw everything.
+    private func settingsDidChange() {
+        ticker.reset()
+        refresh()
+    }
+
+    @objc private func openSettings() {
+        popover?.close()
+        settingsWindow?.show()
+    }
+
     private func sleep() {
         timer.cancel()
         model.flush()
@@ -95,8 +114,7 @@ final class StatusItemController: NSObject {
     /// Built when needed and detached again, so a left-click keeps opening the popover.
     private func showMenu() {
         let menu = NSMenu()
-        let settings = menu.addItem(withTitle: "Settings…", action: nil, keyEquivalent: ",")
-        settings.isEnabled = false // build step 10
+        menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
         let stats = menu.addItem(withTitle: "Stats…", action: nil, keyEquivalent: "")
         stats.isEnabled = false // build step 12
         menu.addItem(.separator())

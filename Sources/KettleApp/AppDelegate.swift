@@ -29,7 +29,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 Log.storage.error("\(String(describing: error), privacy: .public)")
             }
             self.model = model
-            statusItemController = StatusItemController(model: model, style: isDev ? .dev : .template)
+            statusItemController = StatusItemController(
+                model: model,
+                style: isDev ? .dev : .template,
+                dataFolder: folder
+            )
             let variant = isDev ? "Kettle Dev" : "Kettle"
             Log.app.info("\(variant, privacy: .public) started")
         } catch {

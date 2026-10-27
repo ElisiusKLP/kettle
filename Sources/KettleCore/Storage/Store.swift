@@ -27,6 +27,8 @@ public protocol Store: AnyObject {
     func loadSessions(monthOf date: LocalDate) throws -> [Session]
     /// Appends to the month file of the session's start day.
     func appendSession(_ session: Session) throws
+    /// Replaces the sessions file for the month containing `date` (used by import).
+    func saveSessions(_ sessions: [Session], monthOf date: LocalDate)
     func loadDailyTotals() throws -> DailyTotals
     func saveDailyTotals(_ totals: DailyTotals)
     /// Days that have a plan file, oldest first. Only for export and cache rebuilds.
@@ -34,6 +36,8 @@ public protocol Store: AnyObject {
     /// The first day of every month that has a sessions file, oldest first.
     func sessionMonths() throws -> [LocalDate]
     func flush() throws
+    /// Deletes Kettle's files in the data folder (and anything pending), nothing else.
+    func deleteAll() throws
 }
 
 public extension Store {

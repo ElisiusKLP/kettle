@@ -94,6 +94,19 @@ public final class JSONStore: Store {
         enqueue(log, at: path)
     }
 
+    public func saveSessions(_ sessions: [Session], monthOf date: LocalDate) {
+        enqueue(SessionLog(sessions: sessions), at: StorePath.sessions(monthKey: date.monthKey))
+    }
+
+    public func deleteAll() throws {
+        pending = [:]
+        blocked = []
+        flushScheduled = false
+        for path in [StorePath.settings, StorePath.labels, "plans", "sessions", "stats"] {
+            try fileSystem.removeItem(at: url(for: path))
+        }
+    }
+
     public func loadDailyTotals() throws -> DailyTotals {
         try load(DailyTotals.self, at: StorePath.dailyTotals) ?? DailyTotals()
     }

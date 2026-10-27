@@ -8,6 +8,8 @@ public protocol FileSystem {
     func writeAtomically(_ data: Data, to url: URL) throws
     /// Names of the files in a folder, or an empty list if it doesn't exist.
     func fileNames(in folder: URL) throws -> [String]
+    /// Removes a file or folder. Does nothing if it doesn't exist.
+    func removeItem(at url: URL) throws
 }
 
 public struct LocalFileSystem: FileSystem {
@@ -26,6 +28,14 @@ public struct LocalFileSystem: FileSystem {
             return try FileManager.default.contentsOfDirectory(atPath: folder.path)
         } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
             return []
+        }
+    }
+
+    public func removeItem(at url: URL) throws {
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch let error as CocoaError where error.code == .fileNoSuchFile {
+            return
         }
     }
 

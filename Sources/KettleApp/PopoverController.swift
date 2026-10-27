@@ -7,11 +7,13 @@ import SwiftUI
 final class PopoverController: NSObject, NSPopoverDelegate {
     private let model: KettleModel
     private let onChange: () -> Void
+    private let onOpenSettings: () -> Void
     private var popover: NSPopover?
 
-    init(model: KettleModel, onChange: @escaping () -> Void) {
+    init(model: KettleModel, onChange: @escaping () -> Void, onOpenSettings: @escaping () -> Void) {
         self.model = model
         self.onChange = onChange
+        self.onOpenSettings = onOpenSettings
     }
 
     var isShown: Bool {
@@ -27,7 +29,9 @@ final class PopoverController: NSObject, NSPopoverDelegate {
         popover.behavior = .transient
         popover.delegate = self
         let state = PopoverState(model: model, onChange: onChange)
-        popover.contentViewController = NSHostingController(rootView: PopoverView(state: state))
+        popover.contentViewController = NSHostingController(
+            rootView: PopoverView(state: state, openSettings: onOpenSettings)
+        )
         self.popover = popover
         NSApp.activate()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)

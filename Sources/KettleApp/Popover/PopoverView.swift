@@ -4,6 +4,7 @@ import SwiftUI
 /// The day plan: day switcher, quick add, the blocks, and the timer controls.
 struct PopoverView: View {
     @Bindable var state: PopoverState
+    let openSettings: () -> Void
     @FocusState private var quickAddFocused: Bool
 
     var body: some View {
@@ -113,6 +114,10 @@ struct PopoverView: View {
                 Spacer()
                 Button("Back to today") { state.showToday() }
             }
+            Button(action: openSettings) { Image(systemName: "gearshape") }
+                .buttonStyle(.borderless)
+                .keyboardShortcut(",", modifiers: .command)
+                .accessibilityLabel("Settings")
         }
         .controlSize(.small)
         .padding(.horizontal, 12)

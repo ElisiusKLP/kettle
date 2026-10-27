@@ -94,6 +94,10 @@ final class RecordingFileSystem: FileSystem {
         try base.fileNames(in: folder)
     }
 
+    func removeItem(at url: URL) throws {
+        try base.removeItem(at: url)
+    }
+
     func writeAtomically(_ data: Data, to url: URL) throws {
         if failWrites {
             throw POSIXError(.ENOSPC)

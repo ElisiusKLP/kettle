@@ -309,3 +309,29 @@ Our own tick allocates nothing and is negligible; the cost is AppKit rendering a
 ### Quick-add errors are shown inline
 **Chose:** invalid input keeps the text and shows a one-line hint under the field.
 **Why:** the user can fix the input without retyping it.
+
+## Step 10: Settings window
+
+### Import merges; it never deletes
+**Chose:** JSON export is one file with `formatVersion`, `exportedAt`, settings, labels, every plan and every session. Import **merges**: labels by ID (the imported version wins), each imported day's plan replaces that day, sessions are added unless their ID already exists, settings are replaced, and the stats cache is rebuilt. A newer `formatVersion` is refused. A confirmation dialog explains this before importing. A test checks that export → import into an empty folder reproduces every file byte for byte.
+**Why:** a merge can't lose data, and importing an old backup by mistake is recoverable. "Export and import round-trip without data loss" (§13) is covered by the byte-for-byte test.
+
+### CSV is one row per session
+**Chose:** `date,start,end,minutes,label,task,extension_minutes` in local time, RFC 4180 quoting.
+**Why:** spreadsheet users mostly want "where did my time go", which is the sessions. Plans are in the JSON export.
+
+### Delete all data
+**Chose:** after a critical confirmation, Kettle removes only its own files (`settings.json`, `labels.json`, `plans/`, `sessions/`, `stats/`) and anything pending. It then starts from defaults with an empty today.
+**Why:** if the user pointed `KETTLE_DATA_DIR` at a folder that holds other things, those must survive.
+
+### Settings apply immediately
+**Chose:** every control writes straight through `KettleModel` (debounced to disk as usual). Changing the menubar format or countdown precision redraws the menubar at once. Labels can be renamed (on Return; empty names are ignored), recoloured with the system colour picker, archived, or added. There's no delete, so stats always have a name to show.
+**Why:** this is the usual macOS settings behaviour, and §5.3 asks for archiving, not deleting.
+
+### Launch at login
+**Chose:** `SMAppService.mainApp` register/unregister. Failures, or the "needs approval" state, show a one-line hint under the toggle.
+**Why:** an ad-hoc signed build may need approval in System Settings → Login Items.
+
+### Window lifetime
+**Chose:** the Settings window is created on demand. `isReleasedWhenClosed = false`, and the controller drops its only reference (and the hosting controller) right after `windowWillClose`.
+**Why:** under ARC this is the reliable way to free the window and its SwiftUI views on close (§8 rule 2). Letting AppKit release the window while Swift still holds a reference risks a double release.
