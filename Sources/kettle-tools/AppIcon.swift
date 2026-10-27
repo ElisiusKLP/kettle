@@ -2,12 +2,12 @@ import AppKit
 import KettleCore
 import KettleIcon
 
-/// The full-colour app icon (SPEC section 6.5): the menubar kettle's paths on a cream rounded
+/// The full-colour app icon (SPEC section 6.5): the menubar kettle's paths on a light blue rounded
 /// square, with a brushed-steel kettle and black steam. Renders every iconset size from the vector
 /// paths and builds `Resources/AppIcon.icns` with `iconutil`.
 enum AppIcon {
-    static let cream = CGColor(srgbRed: 0.98, green: 0.95, blue: 0.89, alpha: 1)
-    static let creamEdge = CGColor(srgbRed: 0.91, green: 0.85, blue: 0.75, alpha: 1)
+    static let lightBlue = CGColor(srgbRed: 0.85, green: 0.92, blue: 0.98, alpha: 1)
+    static let lightBlueEdge = CGColor(srgbRed: 0.70, green: 0.81, blue: 0.91, alpha: 1)
     static let steelOutline = CGColor(srgbRed: 0.29, green: 0.31, blue: 0.34, alpha: 1)
     /// Left to right across the pot: darker edges and a bright band, like a polished cylinder.
     static let steelGradient = CGGradient(
@@ -74,11 +74,11 @@ enum AppIcon {
             color: CGColor(gray: 0, alpha: 0.25)
         )
         context.addPath(tilePath)
-        context.setFillColor(cream)
+        context.setFillColor(lightBlue)
         context.fillPath()
         context.setShadow(offset: .zero, blur: 0, color: nil)
         context.addPath(tilePath)
-        context.setStrokeColor(creamEdge)
+        context.setStrokeColor(lightBlueEdge)
         context.setLineWidth(4 * unit)
         context.strokePath()
 
