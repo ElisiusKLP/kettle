@@ -367,3 +367,16 @@ Our own tick allocates nothing and is negligible; the cost is AppKit rendering a
 ### Data and lifetime
 **Chose:** the window reads `daily-totals.json` once, through `KettleModel.loadStats()`, when it opens, and never reads raw sessions. Like Settings, it's created on demand and released after `windowWillClose`, so Swift Charts code only exists while it's open. It opens from the right-click menu or the chart button in the popover footer.
 **Why:** §5.3 and §8 rules 2 and 6. The default period is "This week", the most useful view at a glance.
+
+## Step 13: Seed, keyboard and accessibility
+
+### VoiceOver hears the time left, updated per minute
+**Chose:** the status item's accessibility label is "Kettle, *task*, brewing|paused, N minutes left" (or "time's up", "N minutes over time", "nothing brewing", "all brewed for today"), built by `StatusDescription` in KettleCore. The app rebuilds it only when the whole-minute value or the icon state changes. In the popover, the active countdown reads as "23 minutes 41 seconds left". Each row's title and details form one element, and the stepper says "Duration of *task*, N minutes".
+**Why:** §13 says VoiceOver should describe the remaining time, not the steam. Rebuilding once a minute keeps the per-second tick free of string building.
+
+### Space
+**Chose:** in the popover, Space starts, pauses or resumes, except while quick add has focus (so spaces still type) and on days other than the timer's.
+**Why:** §5.5, without breaking typing.
+
+### `make seed`
+**Chose:** no changes in this step; it was built in step 8 for memcheck.

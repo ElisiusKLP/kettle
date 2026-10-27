@@ -18,6 +18,9 @@ final class StatusItemController: NSObject {
     private var settingsWindow: SettingsWindowController?
     private var statsWindow: StatsWindowController?
     private var notifier: WhistleNotifier?
+    /// What the VoiceOver description was last built for, so it's rebuilt once a minute at most.
+    private var describedMinutes: Int?
+    private var describedIcon: IconState?
     private let style: KettleIcon.Style
     /// Tilted whistling frames for the one-off wiggle, rendered the first time it plays.
     private lazy var wiggleFrames: [NSImage] = [0.14, -0.14, 0.09, -0.09, 0.04].map {
@@ -88,6 +91,7 @@ final class StatusItemController: NSObject {
         if update.startedWhistling {
             whistle()
         }
+        updateAccessibility(now: now)
 
         if let next = MenubarTicker.nextTick(engine: model.engine, now: now, precision: model.settings.timerPrecision) {
             timer.schedule(after: next.delay, leeway: .milliseconds(Int(next.leeway * 1000)))
@@ -95,6 +99,15 @@ final class StatusItemController: NSObject {
             let midnight = LocalDate(now, in: .autoupdatingCurrent).adding(days: 1).date(in: .autoupdatingCurrent)
             timer.schedule(after: midnight.timeIntervalSince(now) + 1, leeway: .seconds(60))
         }
+    }
+
+    /// VoiceOver hears the task and the time left (never the steam), updated per whole minute.
+    private func updateAccessibility(now: Date) {
+        let minutes = StatusDescription.minutes(engine: model.engine, now: now)
+        guard minutes != describedMinutes || ticker.icon != describedIcon else { return }
+        describedMinutes = minutes
+        describedIcon = ticker.icon
+        statusItem.button?.setAccessibilityLabel(StatusDescription.text(engine: model.engine, now: now))
     }
 
     /// The format or precision may have changed, so redraw everything.

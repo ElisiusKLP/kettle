@@ -21,6 +21,12 @@ struct PopoverView: View {
         }
         .frame(width: 360, height: 460)
         .background(hiddenShortcuts)
+        .onKeyPress(.space) {
+            // Space starts and pauses, except while typing a task.
+            guard !quickAddFocused, state.isTimerDay else { return .ignored }
+            state.toggle()
+            return .handled
+        }
     }
 
     // MARK: Header

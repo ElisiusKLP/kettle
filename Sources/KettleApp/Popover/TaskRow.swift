@@ -22,6 +22,7 @@ struct TaskRow: View {
                     .lineLimit(1)
                 Text(details).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
+            .accessibilityElement(children: .combine)
             Spacer()
             if isActive {
                 countdown
@@ -35,12 +36,12 @@ struct TaskRow: View {
                 state.adjust(task.id, by: -PlanEngine.resizeStep)
             })
             .labelsHidden()
+            .accessibilityLabel("Duration of \(task.title), \(task.totalMinutes) minutes")
             .disabled(task.isFinished)
         }
         .padding(.vertical, 2)
         .listRowBackground(isActive ? Color.accentColor.opacity(0.12) : Color.clear)
         .contextMenu { menu }
-        .accessibilityElement(children: .combine)
     }
 
     /// "09:00–09:45 · work", plus the status for finished and paused tasks.
@@ -67,9 +68,11 @@ struct TaskRow: View {
     /// Ticks once a second, but only while the popover is open and only in this row.
     private var countdown: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            Text(CountdownFormatter.string(remaining: task.remainingSeconds(at: context.date), precision: .seconds))
+            let remaining = task.remainingSeconds(at: context.date)
+            Text(CountdownFormatter.string(remaining: remaining, precision: .seconds))
                 .monospacedDigit()
                 .fontWeight(.medium)
+                .accessibilityLabel(StatusDescription.spoken(remaining: remaining))
         }
     }
 
