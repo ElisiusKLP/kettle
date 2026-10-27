@@ -11,7 +11,7 @@ This guide gets you from a fresh clone to running tests, a safe dev instance of 
 ## First-time setup (run once, in this order)
 
 ```bash
-git clone https://github.com/OWNER/kettle.git
+git clone https://github.com/ElisiusKLP/kettle.git
 cd kettle
 make bootstrap      # checks Swift/Xcode, installs SwiftLint + SwiftFormat if missing
 make build          # first debug build, which confirms the toolchain works
@@ -49,7 +49,7 @@ make coverage
 `make dev` builds **Kettle Dev.app** into `build/` and launches it. Its kettle is orange, so you can tell it apart from the real one. It uses:
 
 - bundle id `io.github.kettle.dev`
-- its own data folder (`.../Application Support/Kettle-Dev/`)
+- its own data folder (`~/Library/Application Support/Kettle-Dev/`; the dev build isn't sandboxed, so this is outside the release app's container)
 
 This means you can run it next to your real Kettle without touching your real data.
 
@@ -90,6 +90,8 @@ Before opening a PR that touches the app target, timers, storage, or stats, run:
 ```bash
 make memcheck       # builds release, seeds data, starts a task, measures, fails if over budget
 ```
+
+`make memcheck` takes about 5 minutes. It first runs `make test-release` (the zero-allocation tick test, which only means something in an optimised build), then measures the default smart precision in four 1-minute slices (judged on the median slice, so a one-off system burst after launch doesn't fail it) and seconds precision for 30 seconds. The report is saved to `build/memcheck/report.txt`.
 
 To dig into a regression:
 

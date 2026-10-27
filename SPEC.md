@@ -287,6 +287,7 @@ If a feature can't fit these budgets, it stays out of v1 or becomes opt-in, and 
 | `make reset-dev` | Deletes the dev data folder only (asks for confirmation) |
 | `make logs` | Streams `log stream --predicate 'subsystem == "io.github.kettle"'` |
 | `make memcheck` | Builds release with the dev bundle id, seeds data, launches the app, starts a task, waits 30 s (120 s in smart mode), then reports physical footprint (`footprint`, falling back to `ps -o rss=`), CPU and idle wake-ups in smart and seconds precision, and **fails if over budget** |
+| `make test-release` | Runs `PerformanceTests` against an optimised build (zero heap allocations per tick only holds with `-O`) |
 | `make profile` | Launches the dev release build under Instruments (`xcrun xctrace record --template 'Allocations'`) and saves a trace to `build/traces/` |
 | `make release` | Builds an optimised release, bundles `build/Kettle.app`, ad-hoc signs it, and zips it into `build/Kettle-<version>.zip` |
 | `make clean` | Removes `.build/` and `build/` |

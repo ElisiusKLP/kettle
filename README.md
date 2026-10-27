@@ -4,7 +4,7 @@
 
 Kettle is a minimalist, open-source macOS menubar app. Each morning you line up your day as time blocks. The current block then brews in your menubar: a little kettle with a live countdown, whose steam slowly fades as time runs out. When the time is up, the kettle whistles.
 
-[![CI](https://github.com/OWNER/kettle/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/kettle/actions) · MIT License · No telemetry · ~25 MB RAM
+[![CI](https://github.com/ElisiusKLP/kettle/actions/workflows/ci.yml/badge.svg)](https://github.com/ElisiusKLP/kettle/actions) · MIT License · No telemetry · ~25 MB RAM
 
 ## Features
 
@@ -18,13 +18,13 @@ Kettle is a minimalist, open-source macOS menubar app. Each morning you line up 
 
 ## Install
 
-Download the latest `Kettle-x.y.z.zip` from [Releases](https://github.com/OWNER/kettle/releases), unzip it, and move **Kettle.app** to Applications. On first launch, right-click the app and choose Open, since the build is not notarized yet.
+Download the latest `Kettle-x.y.z.zip` from [Releases](https://github.com/ElisiusKLP/kettle/releases), unzip it, and move **Kettle.app** to Applications. On first launch, right-click the app and choose Open, since the build is not notarized yet.
 
 To build it yourself, see [DEVELOPMENT.md](DEVELOPMENT.md). Requires macOS 14 Sonoma or later.
 
 ## Usage
 
-1. Click the kettle in the menubar.
+1. Click the kettle in the menubar. (Right-click it for Settings, Stats, and Quit.)
 2. Add your tasks for the day, for example `Emails 20m #admin` or `Deep work 1h30m #work`.
 3. Press **Space** to start brewing.
 4. When the kettle whistles, choose **Done** or **Keep brewing**.
@@ -36,6 +36,7 @@ To build it yourself, see [DEVELOPMENT.md](DEVELOPMENT.md). Requires macOS 14 So
 | `⌘↩` | Mark current task done |
 | `⌘E` | Keep brewing (extend) |
 | `⌘←` / `⌘→` | Previous / next day |
+| `⌘,` | Settings |
 
 Use **Settings** to set the extend duration, auto-start behaviour, menubar format, timer precision (seconds all the time if you like, at a small energy cost), labels, and data export.
 
