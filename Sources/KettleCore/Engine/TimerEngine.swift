@@ -116,9 +116,10 @@ public struct TimerEngine {
     /// Starting a different task returns the active one to pending, keeping its brewed time.
     /// The first start on a day without a start time sets it to now.
     ///
-    /// A pending task that starts moves up to be next in line (ahead of the other pending tasks)
-    /// and its `fixedStart` becomes now, so derived times follow what really happened. Resuming
-    /// a paused task keeps its start, so the pause stretches its block.
+    /// A task that starts or resumes moves up to be next in line (ahead of the pending tasks).
+    /// A pending task's `fixedStart` becomes now, so derived times follow what really happened.
+    /// Resuming a paused task keeps its start, so the pause stretches its block, unless it was
+    /// moved to later in the calendar: then it starts now.
     @discardableResult
     public mutating func start(taskID: UUID? = nil) -> [Session] {
         let target: Int? = if let taskID {
@@ -136,13 +137,13 @@ public struct TimerEngine {
             plan.tasks[active].status = .pending
             plan.tasks[active].fixedStart = nil
         }
-        if plan.tasks[target].status == .pending {
-            if let first = plan.tasks.indices.first(where: { $0 != target && plan.tasks[$0].status == .pending }),
-               first < target
-            {
-                plan.tasks.insert(plan.tasks.remove(at: target), at: first)
-                target = first
-            }
+        if let first = plan.tasks.indices.first(where: { $0 != target && plan.tasks[$0].status == .pending }),
+           first < target
+        {
+            plan.tasks.insert(plan.tasks.remove(at: target), at: first)
+            target = first
+        }
+        if plan.tasks[target].status == .pending || (plan.tasks[target].fixedStart ?? now) > now {
             plan.tasks[target].fixedStart = now
         }
         plan.tasks[target].status = .brewing

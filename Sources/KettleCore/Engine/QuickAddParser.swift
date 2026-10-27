@@ -51,6 +51,16 @@ public enum QuickAddParser {
         return QuickAddEntry(title: words.joined(separator: " "), minutes: minutes, labelName: labelName)
     }
 
+    /// A duration typed on its own, like `45`, `45m`, `1h` or `1h30`: minutes within
+    /// `PlanTask.plannedMinutesRange`, or nil.
+    public static func minutes(_ text: String) -> Int? {
+        let word = text.filter { !$0.isWhitespace }
+        guard let minutes = duration(in: Substring(word)), PlanTask.plannedMinutesRange.contains(minutes) else {
+            return nil
+        }
+        return minutes
+    }
+
     static func isLabel(_ word: Substring) -> Bool {
         guard word.first == "#", let first = word.dropFirst().first, first.isLetter else { return false }
         return word.dropFirst().allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }

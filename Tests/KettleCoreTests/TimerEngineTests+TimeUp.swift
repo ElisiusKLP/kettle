@@ -203,4 +203,22 @@ extension TimerEngineTests {
         #expect(engine.plan.tasks.map(\.title) == ["Gym", "Write", "Emails"])
         #expect(engine.plan.tasks[1].fixedStart == nil)
     }
+
+    @Test func resumingAPausedTaskMovedLaterStartsNowAndMovesUp() {
+        var engine = engine()
+        engine.start()
+        clock.advance(by: minutes(10))
+        engine.pause()
+        let write = engine.plan.tasks[0].id
+        engine.editPlan { plan in
+            // As if dragged after the other two in the calendar.
+            plan.tasks[0].fixedStart = nine + minutes(120)
+            plan.tasks.append(plan.tasks.removeFirst())
+        }
+        engine.start()
+        #expect(engine.activeTask?.id == write)
+        #expect(engine.activeIndex == 0)
+        #expect(engine.activeTask?.fixedStart == clock.now)
+        #expect(offsets(engine) == [[10, 45], [45, 105], [105, 125]])
+    }
 }

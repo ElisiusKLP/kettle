@@ -484,3 +484,13 @@ Reordering in the list, carrying a task over, and a task going back to pending (
 - During a drag, blocks are drawn in the plan's own order, which doesn't change mid-drag, so the dragged block keeps its gesture.
 - A randomised test (500 plans, every drag kind) checks that blocks never overlap, other pending blocks never move up, and a moved block never starts before its drop.
 **Why:** reported by the maintainer: blocks still stacked, one could get lost under another, and the last of three wasn't always pushed all the way down.
+
+### Drops land under the pointer; brewing blocks are locked; block editor
+**Found:** with the upper/lower-half rule, dragging a block up into the lower half of the block above made it land after that block, back where it started. The bold label shown was the drag time. And brewing, paused and finished blocks couldn't be dragged at all, which looked like dragging worked only sometimes. A popover that isn't the key window also swallowed the first click.
+**Chose:**
+- A moved block always lands where it's dropped. It goes before the first pending block it overlaps (judged against the layout before the drag), which is pushed down along with the blocks after it. Finished and brewing blocks can't be pushed, so a block dropped onto one starts when it ends. Pending blocks before now still start now.
+- Pending blocks can be moved, resized by both edges, and edited. A paused block can be moved, resized by its bottom edge, and edited, but always keeps at least a minute more than it has brewed. If it was moved later and is resumed early, it starts now and moves up to be next. A brewing block is locked; Keep brewing extends it. In the live schedule, a moved paused block runs from its new start.
+- Hovering an editable block shows − and + (the duration step), which move its end like the bottom edge.
+- Double-clicking a block (in the calendar or the list) opens an editor over the day with Length (typed like quick add: `45`, `1h30`), From and To. Changing From keeps the length; changing To or Length moves the end; a To at or before From means the next day. Saving uses `CalendarEdit.set`, so later blocks are pushed as with a drag. Space doesn't start or pause while it's open.
+- The drag is held in `@GestureState`, so an interrupted drag can't leave a stale preview. The popover's hosting view accepts the first click.
+**Why:** reported and requested by the maintainer.

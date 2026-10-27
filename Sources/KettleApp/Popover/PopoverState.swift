@@ -16,6 +16,8 @@ final class PopoverState {
     private(set) var yesterdayUnfinished = 0
     var quickAdd = ""
     var quickAddError: String?
+    /// The task open in the block editor (double-click), if any.
+    var editingTaskID: UUID?
 
     @ObservationIgnored private let model: KettleModel
     /// Called after every change. The app reloads this state in response.
@@ -59,11 +61,13 @@ final class PopoverState {
 
     func showDay(offset: Int) {
         date = date.adding(days: offset)
+        editingTaskID = nil
         reload()
     }
 
     func showToday() {
         date = model.engine.plan.date
+        editingTaskID = nil
         reload()
     }
 
@@ -128,6 +132,24 @@ final class PopoverState {
     /// `PlanEngine`.
     func rearrange(_ change: (inout DayPlan) -> Void) {
         edit(change)
+    }
+
+    /// The block editor: the task starts at `start` and lasts `minutes`.
+    func setTimes(_ taskID: UUID, start: Date, minutes: Int, now: Date) {
+        let edit = calendarEdit(now: now)
+        self.edit { edit.set(taskID, start: start, minutes: minutes, in: &$0) }
+    }
+
+    /// The + and − buttons on a calendar block: its end moves by `minutes`.
+    func nudge(_ taskID: UUID, by minutes: Int, now: Date) {
+        let edit = calendarEdit(now: now)
+        guard let block = edit.schedule.first(where: { $0.taskID == taskID }) else { return }
+        self.edit { edit.resize(taskID, end: block.end + TimeInterval(minutes * 60), in: &$0) }
+    }
+
+    /// Calendar edits against the blocks as shown now.
+    func calendarEdit(now: Date) -> CalendarEdit {
+        CalendarEdit(schedule: calendarBlocks(now: now), now: date == today ? now : nil)
     }
 
     func unpin(_ taskID: UUID) {

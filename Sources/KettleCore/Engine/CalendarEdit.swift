@@ -1,12 +1,16 @@
 import Foundation
 
-/// Drag and drop in the calendar: moving a block to a time, and resizing it by its edges.
+/// Drag and drop in the calendar: moving a block to a time, resizing it, and setting its times
+/// in the editor.
 ///
-/// Every edit keeps the other pending blocks where they're shown (`freeze`), so they can be
-/// pushed down by a block that now overlaps them, one after the other, but never jump up into
-/// a gap the edit leaves.
+/// Every edit keeps the other pending blocks where they're shown (`freeze`). The edited block
+/// lands where it's put, and the blocks it then overlaps are pushed down, one after the other.
+/// Nothing jumps up into a gap the edit leaves.
+///
+/// Pending blocks can be changed freely. A paused block can be moved and resized at its end.
+/// A brewing block is locked (Keep brewing extends it), and finished blocks are history.
 public struct CalendarEdit {
-    /// Edges can't make a block shorter than this.
+    /// Edits can't make a block shorter than this.
     public static let minimumMinutes = 5
 
     /// The plan's blocks as shown before the edit.
@@ -19,6 +23,16 @@ public struct CalendarEdit {
         self.now = now
     }
 
+    /// Whether the task's block can be moved (and its start changed).
+    public static func canMove(_ task: PlanTask) -> Bool {
+        task.status == .pending || task.status == .paused
+    }
+
+    /// Whether the task's length can be changed.
+    public static func canResize(_ task: PlanTask) -> Bool {
+        canMove(task)
+    }
+
     /// Gives each pending task its current start as its fixed start.
     public func freeze(_ plan: inout DayPlan) {
         for index in plan.tasks.indices where plan.tasks[index].status == .pending {
@@ -28,51 +42,61 @@ public struct CalendarEdit {
         }
     }
 
-    /// Fixes a pending task to start at `start`, and moves it among the pending tasks so the
-    /// order follows the times. It stays after every task that isn't pending (finished or
-    /// active). Dropped on the upper half of another pending block, it takes that time and
-    /// pushes the block down; on the lower half, it starts when that block ends.
+    /// Moves the block to start at `start`. It goes just before the first pending block it
+    /// would overlap or that ends later, which is pushed down. Finished and brewing blocks
+    /// can't be pushed, so if it overlaps one, it starts when that one ends.
     public func move(_ taskID: UUID, to start: Date, in plan: inout DayPlan) {
-        guard let index = plan.tasks.firstIndex(where: { $0.id == taskID && $0.status == .pending }) else { return }
+        guard let index = plan.tasks.firstIndex(where: { $0.id == taskID && Self.canMove($0) }) else { return }
         freeze(&plan)
         var task = plan.tasks.remove(at: index)
         task.fixedStart = start
-        let afterFixed = (plan.tasks.lastIndex { $0.status != .pending }).map { $0 + 1 } ?? 0
-        let later = plan.tasks.indices.first { position in
-            guard position >= afterFixed else { return false }
-            guard let block = block(plan.tasks[position].id) else { return true }
-            return start < block.start + block.end.timeIntervalSince(block.start) / 2
+        let later = plan.tasks.firstIndex { other in
+            other.status == .pending && (block(other.id).map { start < $0.end } ?? true)
         }
         plan.tasks.insert(task, at: later ?? plan.tasks.count)
     }
 
-    /// The bottom edge: the block ends at `end` instead, so its planned minutes change by the
-    /// difference (whole minutes). Longer, it pushes the blocks it now overlaps down; shorter,
-    /// it leaves a gap. It keeps at least `minimumMinutes`, and an active block at least a
-    /// minute from now, so a drag can't finish it by accident.
+    /// The bottom edge: the block ends at `end` instead (to the whole minute). Longer, it
+    /// pushes the blocks it now overlaps down; shorter, it leaves a gap.
     public func resize(_ taskID: UUID, end: Date, in plan: inout DayPlan) {
-        guard let task = plan.tasks.first(where: { $0.id == taskID && !$0.isFinished }),
+        guard let task = plan.tasks.first(where: { $0.id == taskID && Self.canResize($0) }),
               let block = block(taskID)
         else { return }
-        var earliest = block.start + TimeInterval(Self.minimumMinutes * 60)
-        if let now, task.status != .pending {
-            earliest = max(earliest, now + 60)
-        }
-        let delta = Int((max(end, earliest).timeIntervalSince(block.end) / 60).rounded())
+        let delta = Int((end.timeIntervalSince(block.end) / 60).rounded())
         freeze(&plan)
-        PlanEngine.adjust(taskID: taskID, byMinutes: delta, in: &plan)
+        setLength(taskID, to: task.totalMinutes + delta, in: &plan)
     }
 
-    /// A pending block's top edge: it's moved to start at `start` (see `move`) and keeps its
-    /// end, so it gets longer or shorter. It keeps at least `minimumMinutes`.
+    /// A pending block's top edge: it starts at `start` (see `move`) and keeps its end.
     public func resize(_ taskID: UUID, start: Date, in plan: inout DayPlan) {
-        guard let task = plan.tasks.first(where: { $0.id == taskID && $0.status == .pending }),
+        guard plan.tasks.contains(where: { $0.id == taskID && $0.status == .pending }),
               let block = block(taskID)
         else { return }
         let start = min(start, block.end - TimeInterval(Self.minimumMinutes * 60))
-        let total = Int((block.end.timeIntervalSince(start) / 60).rounded())
         move(taskID, to: start, in: &plan)
-        PlanEngine.resize(taskID: taskID, to: max(1, total - task.extendedMinutes), in: &plan)
+        setLength(taskID, to: Int((block.end.timeIntervalSince(start) / 60).rounded()), in: &plan)
+    }
+
+    /// The editor: the block starts at `start` and lasts `minutes` (including extensions).
+    public func set(_ taskID: UUID, start: Date, minutes: Int, in plan: inout DayPlan) {
+        guard let block = block(taskID), plan.tasks.contains(where: { $0.id == taskID && Self.canMove($0) }) else {
+            return
+        }
+        if abs(start.timeIntervalSince(block.start)) >= 60 {
+            move(taskID, to: start, in: &plan)
+        } else {
+            freeze(&plan)
+        }
+        setLength(taskID, to: minutes, in: &plan)
+    }
+
+    /// Sets the block's length, keeping its extensions, at least `minimumMinutes` and, for a
+    /// paused task, at least a minute more than it has brewed, so it can't finish on resume.
+    private func setLength(_ taskID: UUID, to minutes: Int, in plan: inout DayPlan) {
+        guard let task = plan.tasks.first(where: { $0.id == taskID }) else { return }
+        let brewedMinutes = (task.brewedSeconds + 59) / 60
+        let minimum = max(Self.minimumMinutes, task.status == .pending ? 0 : brewedMinutes + 1)
+        PlanEngine.resize(taskID: taskID, to: max(minimum, minutes) - task.extendedMinutes, in: &plan)
     }
 
     private func block(_ taskID: UUID) -> ScheduledBlock? {

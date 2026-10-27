@@ -5,7 +5,9 @@ import SwiftUI
 /// at its derived time, and a line at the current time. Pending blocks can be dragged to a new
 /// time, which pins them there (`CalendarEdit`). Dragging a block's bottom edge changes its
 /// duration, and a pending block's top edge its start. While dragging, the whole day is laid
-/// out as if dropped there, so the other blocks make room instead of being covered.
+/// out as if dropped there, so the other blocks make room instead of being covered. Hovering
+/// shows − and + for the length, and a double-click opens the block editor. A brewing block is
+/// locked; only Keep brewing extends it.
 ///
 /// Blocks never overlap on screen: a short block is drawn at `minimumBlockHeight`, and the
 /// blocks after it move down as far as needed to stay below it.
@@ -36,7 +38,9 @@ struct CalendarDayView: View {
         let translation: CGFloat
     }
 
-    @State private var drag: Drag?
+    /// Resets itself when a drag ends or is interrupted, so a preview can't get stuck.
+    @GestureState private var drag: Drag?
+    @State private var hovered: UUID?
 
     private var interval: Int {
         state.settings.calendarIntervalMinutes
@@ -96,56 +100,6 @@ struct CalendarDayView: View {
         }
     }
 
-    // MARK: Time marks
-
-    /// Minutes shown: the whole day, plus however long the last block runs past midnight
-    /// (up to 12 hours), to the next mark.
-    private func dayLength(_ blocks: [ScheduledBlock]) -> Int {
-        let last = blocks.map { Int($0.end.timeIntervalSince(dayStart) / 60) }.max() ?? 0
-        let length = min(max(last, 24 * 60), Self.maximumMinutes)
-        return (length + interval - 1) / interval * interval
-    }
-
-    private func marks(_ length: Int) -> some View {
-        VStack(spacing: 0) {
-            ForEach(0 ..< length / interval, id: \.self) { index in
-                let minute = index * interval
-                ZStack(alignment: .topLeading) {
-                    Rectangle()
-                        .fill(Color.secondary.opacity(minute % 60 == 0 ? 0.25 : 0.12))
-                        .frame(height: 1)
-                        .padding(.leading, Self.gutterWidth)
-                    Text(markLabel(minute))
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(minute % 60 == 0 ? .secondary : .tertiary)
-                        .frame(width: Self.gutterWidth - 6, alignment: .trailing)
-                        .offset(y: -6)
-                }
-                .frame(height: CGFloat(interval) * pointsPerMinute, alignment: .top)
-                .id(index)
-            }
-        }
-        .padding(.top, Self.topInset)
-        .accessibilityHidden(true)
-    }
-
-    /// "9 AM" or "09" on the hour (following the user's locale), ":30" in between.
-    private func markLabel(_ minute: Int) -> String {
-        guard minute % 60 == 0 else { return String(format: ":%02d", minute % 60) }
-        return (dayStart + TimeInterval(minute * 60)).formatted(.dateTime.hour())
-    }
-
-    private var nowLine: some View {
-        HStack(spacing: 0) {
-            Circle().fill(.red).frame(width: 6, height: 6)
-            Rectangle().fill(.red).frame(height: 1)
-        }
-        .padding(.leading, Self.gutterWidth - 3)
-        .offset(y: y(minutes: minutes(now)) - 3)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-
     // MARK: Blocks
 
     /// Where each block is drawn: at its time, unless the block before it (drawn taller than
@@ -171,6 +125,8 @@ struct CalendarDayView: View {
         let height = frame.height
         let resizable = height >= Self.minimumResizableHeight
         let dragged = drag?.taskID == task.id ? drag?.kind : nil
+        let editable = CalendarEdit.canMove(task)
+        let step = state.settings.resizeStepMinutes
         return CalendarBlock(
             task: task,
             label: state.label(for: task),
@@ -178,8 +134,10 @@ struct CalendarDayView: View {
             isActive: task.id == state.activeTaskID,
             isDragged: dragged != nil,
             showsDetails: height >= 30,
+            showsLengthButtons: editable && hovered == task.id && drag == nil,
             corner: cornerText(task, block, dragged: dragged),
-            state: state
+            state: state,
+            nudge: { direction in state.nudge(task.id, by: direction * step, now: now) }
         )
         .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
         .overlay(alignment: .top) {
@@ -188,14 +146,26 @@ struct CalendarDayView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if resizable, !task.isFinished {
+            if resizable, CalendarEdit.canResize(task) {
                 edge(task, .bottom)
             }
         }
         .padding(.leading, Self.gutterWidth + 2)
         .offset(y: top)
         .zIndex(dragged != nil ? 1 : 0)
-        .gesture(dragGesture(task.id, .move), including: task.status == .pending ? .all : .subviews)
+        .onHover { inside in
+            if inside {
+                hovered = task.id
+            } else if hovered == task.id {
+                hovered = nil
+            }
+        }
+        .gesture(dragGesture(task.id, .move), including: editable ? .all : .subviews)
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            if editable {
+                state.editingTaskID = task.id
+            }
+        })
     }
 
     /// The strip along a block's top or bottom edge that resizes it, with the resize cursor.
@@ -216,12 +186,11 @@ struct CalendarDayView: View {
     private func dragGesture(_ taskID: UUID, _ kind: DragKind) -> some Gesture {
         // Global coordinates: the block moves with the drag, so its own would shift under it.
         DragGesture(minimumDistance: 3, coordinateSpace: .global)
-            .onChanged { value in
+            .updating($drag) { value, drag, _ in
                 drag = Drag(taskID: taskID, kind: kind, translation: value.translation.height)
             }
             .onEnded { value in
                 let finished = Drag(taskID: taskID, kind: kind, translation: value.translation.height)
-                drag = nil
                 if let change = change(for: finished, blocks: state.calendarBlocks(now: now)) {
                     state.rearrange(change)
                 }
@@ -311,6 +280,58 @@ struct CalendarDayView: View {
             .padding(.vertical, 4)
             .background(.regularMaterial, in: Capsule())
             .padding(.top, 8)
+    }
+}
+
+// MARK: - Time marks
+
+extension CalendarDayView {
+    /// Minutes shown: the whole day, plus however long the last block runs past midnight
+    /// (up to 12 hours), to the next mark.
+    private func dayLength(_ blocks: [ScheduledBlock]) -> Int {
+        let last = blocks.map { Int($0.end.timeIntervalSince(dayStart) / 60) }.max() ?? 0
+        let length = min(max(last, 24 * 60), Self.maximumMinutes)
+        return (length + interval - 1) / interval * interval
+    }
+
+    private func marks(_ length: Int) -> some View {
+        VStack(spacing: 0) {
+            ForEach(0 ..< length / interval, id: \.self) { index in
+                let minute = index * interval
+                ZStack(alignment: .topLeading) {
+                    Rectangle()
+                        .fill(Color.secondary.opacity(minute % 60 == 0 ? 0.25 : 0.12))
+                        .frame(height: 1)
+                        .padding(.leading, Self.gutterWidth)
+                    Text(markLabel(minute))
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(minute % 60 == 0 ? .secondary : .tertiary)
+                        .frame(width: Self.gutterWidth - 6, alignment: .trailing)
+                        .offset(y: -6)
+                }
+                .frame(height: CGFloat(interval) * pointsPerMinute, alignment: .top)
+                .id(index)
+            }
+        }
+        .padding(.top, Self.topInset)
+        .accessibilityHidden(true)
+    }
+
+    /// "9 AM" or "09" on the hour (following the user's locale), ":30" in between.
+    private func markLabel(_ minute: Int) -> String {
+        guard minute % 60 == 0 else { return String(format: ":%02d", minute % 60) }
+        return (dayStart + TimeInterval(minute * 60)).formatted(.dateTime.hour())
+    }
+
+    private var nowLine: some View {
+        HStack(spacing: 0) {
+            Circle().fill(.red).frame(width: 6, height: 6)
+            Rectangle().fill(.red).frame(height: 1)
+        }
+        .padding(.leading, Self.gutterWidth - 3)
+        .offset(y: y(minutes: minutes(now)) - 3)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

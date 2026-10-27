@@ -61,7 +61,8 @@ public enum PlanEngine {
                 end = start
             case .brewing, .paused:
                 if let now {
-                    end = max(start, now + max(0, task.remainingSeconds(at: now)))
+                    // A paused block moved later starts there; otherwise it runs from now.
+                    end = max(start, now) + max(0, task.remainingSeconds(at: now))
                 } else {
                     end = start + max(planned, TimeInterval(task.brewedSeconds))
                 }

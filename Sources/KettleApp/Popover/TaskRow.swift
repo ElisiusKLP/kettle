@@ -42,6 +42,11 @@ struct TaskRow: View {
         .padding(.vertical, 2)
         .listRowBackground(isActive ? Color.accentColor.opacity(0.12) : Color.clear)
         .contextMenu { TaskMenu(task: task, state: state) }
+        .onTapGesture(count: 2) {
+            if CalendarEdit.canMove(task) {
+                state.editingTaskID = task.id
+            }
+        }
     }
 
     /// "09:00–09:45 · work", plus the status for finished and paused tasks.

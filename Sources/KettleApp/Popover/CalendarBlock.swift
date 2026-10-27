@@ -16,8 +16,12 @@ struct CalendarBlock: View {
     let isDragged: Bool
     /// Room for a second line with the times.
     let showsDetails: Bool
+    /// − and + for the length, on hover.
+    let showsLengthButtons: Bool
     let corner: Corner
     let state: PopoverState
+    /// Changes the length by one step: -1 shorter, 1 longer.
+    let nudge: (Int) -> Void
 
     private var color: Color {
         label.map { Color(hex: $0.colorHex) } ?? .secondary
@@ -41,6 +45,9 @@ struct CalendarBlock: View {
             }
             .accessibilityElement(children: .combine)
             Spacer(minLength: 0)
+            if showsLengthButtons {
+                lengthButtons
+            }
             switch corner {
             case .countdown:
                 Countdown(task: task).font(.caption.monospacedDigit().weight(.medium))
@@ -78,10 +85,23 @@ struct CalendarBlock: View {
 
     private var help: String {
         switch task.status {
-        case .pending: "Drag to move. Drag the top or bottom edge to change the time."
-        case .brewing, .paused: "Drag the bottom edge to change the length."
+        case .pending: "Drag to move, or drag an edge to change the time. Double-click to set the times."
+        case .paused: "Drag to move, or drag the bottom edge to change the length. Double-click to set the times."
+        case .brewing: "Brewing. Keep brewing adds time."
         case .done, .skipped: ""
         }
+    }
+
+    private var lengthButtons: some View {
+        HStack(spacing: 2) {
+            Button { nudge(-1) } label: { Image(systemName: "minus.circle") }
+                .accessibilityLabel("Shorten \(task.title)")
+            Button { nudge(1) } label: { Image(systemName: "plus.circle") }
+                .accessibilityLabel("Lengthen \(task.title)")
+        }
+        .buttonStyle(.borderless)
+        .font(.caption)
+        .help("Change the length by \(state.settings.resizeStepMinutes) minutes")
     }
 
     /// "09:00–09:45 · work · Paused"

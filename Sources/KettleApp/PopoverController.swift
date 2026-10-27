@@ -38,12 +38,14 @@ final class PopoverController: NSObject, NSPopoverDelegate {
         popover.delegate = self
         let state = PopoverState(model: model, onChange: onChange)
         self.state = state
-        let content = NSHostingController(
+        let host = FirstClickHostingView(
             rootView: PopoverView(state: state, openSettings: onOpenSettings, openStats: onOpenStats)
         )
         // Size the popover up front: if it only learns its size from SwiftUI after opening, AppKit
         // positions it for a tiny size and it then grows off the edge of the screen.
-        content.sizingOptions = []
+        host.sizingOptions = []
+        let content = NSViewController()
+        content.view = host
         popover.contentViewController = content
         popover.contentSize = PopoverView.size
         self.popover = popover
@@ -64,5 +66,13 @@ final class PopoverController: NSObject, NSPopoverDelegate {
         popover?.contentViewController = nil
         popover = nil
         state = nil
+    }
+}
+
+/// Clicks and drags work on the first try, even when the popover isn't the key window yet.
+/// Otherwise AppKit spends the first click making it key, and a drag that starts with it is lost.
+private final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for _: NSEvent?) -> Bool {
+        true
     }
 }

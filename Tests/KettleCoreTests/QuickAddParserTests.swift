@@ -83,4 +83,14 @@ struct QuickAddParserTests {
     @Test func defaultDurationIsWithinTheAllowedRange() {
         #expect(PlanTask.plannedMinutesRange.contains(QuickAddParser.defaultMinutes))
     }
+
+    @Test func aDurationOnItsOwn() {
+        #expect(QuickAddParser.minutes("45") == 45)
+        #expect(QuickAddParser.minutes(" 45m ") == 45)
+        #expect(QuickAddParser.minutes("1h30") == 90)
+        #expect(QuickAddParser.minutes("1 h 5 m") == 65)
+        #expect(QuickAddParser.minutes("0") == nil)
+        #expect(QuickAddParser.minutes("13h") == nil)
+        #expect(QuickAddParser.minutes("soon") == nil)
+    }
 }

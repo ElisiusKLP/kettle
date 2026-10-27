@@ -23,6 +23,7 @@ struct PopoverView: View {
                     taskList(now: context.date)
                 }
             }
+            .overlay { editor }
             Divider()
             footer
         }
@@ -30,7 +31,7 @@ struct PopoverView: View {
         .background(hiddenShortcuts)
         .onKeyPress(.space) {
             // Space starts and pauses, except while typing a task.
-            guard !quickAddFocused, state.isTimerDay else { return .ignored }
+            guard !quickAddFocused, state.editingTaskID == nil, state.isTimerDay else { return .ignored }
             state.toggle()
             return .handled
         }
@@ -101,6 +102,27 @@ struct PopoverView: View {
                 }
             }
             .listStyle(.plain)
+        }
+    }
+
+    /// The block editor over the day, opened by double-clicking a block.
+    @ViewBuilder
+    private var editor: some View {
+        let now = Date()
+        if let id = state.editingTaskID, let task = state.plan.tasks.first(where: { $0.id == id }),
+           CalendarEdit.canMove(task), let block = state.calendarBlocks(now: now).first(where: { $0.taskID == id })
+        {
+            ZStack {
+                Color.black.opacity(0.15)
+                    .contentShape(Rectangle())
+                    .onTapGesture { state.editingTaskID = nil }
+                BlockEditor(task: task, block: block, state: state, now: now)
+                    .id(id)
+                    .padding(14)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+                    .shadow(color: .black.opacity(0.2), radius: 8, y: 2)
+                    .padding(16)
+            }
         }
     }
 
