@@ -394,8 +394,8 @@ Our own tick allocates nothing and is negligible; the cost is AppKit rendering a
 ## Step 15: App icon and docs
 
 ### App icon
-**Chose:** `kettle-tools appicon` draws the menubar kettle's own paths at full steam on a cream rounded square (macOS grid: an 824 px tile with a 185 px corner radius on a 1024 px canvas, with a soft drop shadow). The pot is filled copper with a darker copper outline, and the steam is white with a soft copper shadow. Every iconset size is rendered from the vector paths, then `iconutil` builds `Resources/AppIcon.icns`. A 1024 px preview goes to `build/icons/appicon.png`. `KettleDrawing.draw` gained an optional `bodyFill`, which the menubar icon doesn't use.
-**Why:** this follows §6.5. White steam on cream disappears without the shadow, and rendering each size from vectors keeps the small sizes crisp.
+**Chose:** `kettle-tools appicon` draws the menubar kettle's own paths at full steam on a cream rounded square (macOS grid: an 824 px tile with a 185 px corner radius on a 1024 px canvas, with a soft drop shadow). The pot has a brushed-steel look: a left-to-right gray gradient (darker edges, a bright band) inside a dark steel outline. The steam is black (changed from the spec's copper kettle and white steam at the maintainer's request at the final checkpoint, for contrast on the light tile). Every iconset size is rendered from the vector paths, then `iconutil` builds `Resources/AppIcon.icns`. A 1024 px preview goes to `build/icons/appicon.png`. `KettleDrawing.bodyPath()` is public so the app icon can clip its gradient to the pot. The menubar icon is unchanged.
+**Why:** this follows §6.5, except for the colours: white steam all but disappears on cream, and a metal kettle reads as a kettle at every size. Rendering each size from vectors keeps the small sizes crisp.
 
 ### Docs
 **Chose:** PRIVACY.md now also covers the notification permission, Login Items, export/import files, delete-all and sandbox file access. Changes to README.md and DEVELOPMENT.md are proposed to the maintainer, not applied (CLAUDE.md).

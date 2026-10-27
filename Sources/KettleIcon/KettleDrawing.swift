@@ -14,13 +14,11 @@ public enum KettleDrawing {
     static let pivot = CGPoint(x: 6.8, y: 1.75)
 
     /// Draws `state`. `rotation` is in radians and only used for the whistle wiggle.
-    /// `bodyFill` fills the pot (the app icon); the menubar icon leaves it as an outline.
     public static func draw(
         _ state: IconState,
         in context: CGContext,
         bodyColor: CGColor,
         steamColor: CGColor,
-        bodyFill: CGColor? = nil,
         rotation: CGFloat = 0
     ) {
         context.saveGState()
@@ -44,11 +42,6 @@ public enum KettleDrawing {
 
         context.setLineCap(.round)
         context.setLineJoin(.round)
-        if let bodyFill {
-            context.setFillColor(bodyFill)
-            context.addPath(bodyPath())
-            context.fillPath()
-        }
         drawKettle(in: context, color: bodyColor)
 
         switch state {
@@ -70,7 +63,7 @@ public enum KettleDrawing {
 
     // MARK: Kettle
 
-    static func bodyPath() -> CGPath {
+    public static func bodyPath() -> CGPath {
         let path = CGMutablePath()
         path.move(to: CGPoint(x: 3.2, y: 1.75))
         path.addLine(to: CGPoint(x: 10.3, y: 1.75))
