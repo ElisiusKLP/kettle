@@ -57,9 +57,9 @@ private struct GeneralSettings: View {
                 Text("Kettle, task and time").tag(MenubarFormat.iconTitleAndTime)
             }
             Picker("Countdown", selection: $state.settings.timerPrecision) {
-                Text("Minutes, seconds in the last minute").tag(TimerPrecision.smart)
-                Text("Seconds (uses a little more energy)").tag(TimerPrecision.seconds)
-                Text("Minutes").tag(TimerPrecision.minutes)
+                Text("Minutes and seconds").tag(TimerPrecision.seconds)
+                Text("Minutes, seconds in the last minute (lighter)").tag(TimerPrecision.smart)
+                Text("Minutes (lightest)").tag(TimerPrecision.minutes)
             }
             Toggle("Whistle sound", isOn: $state.settings.whistleSound)
             Toggle("Notify when time's up", isOn: $state.settings.notifyOnFinish)

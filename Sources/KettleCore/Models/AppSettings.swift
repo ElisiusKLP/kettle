@@ -8,7 +8,8 @@ public enum TimerPrecision: String, Codable, Sendable, CaseIterable {
     /// Minutes, switching to seconds for the final minute and the first minute of overtime.
     /// Nearly as light as `.minutes`, with a live countdown to the whistle.
     case smart
-    /// Seconds all the time. Redrawing the menubar every second costs about 0.4% CPU.
+    /// Seconds all the time (the default), so the menubar visibly ticks while a task brews.
+    /// Redrawing the menubar every second costs about 0.4% CPU.
     case seconds
     /// Minutes all the time: the lowest energy use.
     case minutes
@@ -55,7 +56,7 @@ public struct AppSettings: StoredDocument, Hashable {
     /// until Done.
     public var overtime = false
     public var menubarFormat = MenubarFormat.iconAndTime
-    public var timerPrecision = TimerPrecision.smart
+    public var timerPrecision = TimerPrecision.seconds
     public var whistleSound = true
     public var notifyOnFinish = true
     public var launchAtLogin = false

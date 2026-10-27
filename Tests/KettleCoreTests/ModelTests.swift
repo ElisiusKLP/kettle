@@ -145,7 +145,7 @@ struct AppSettingsTests {
         #expect(settings.resizeStepMinutes == 5)
         #expect(!settings.autoStartNext)
         #expect(settings.menubarFormat == .iconAndTime)
-        #expect(settings.timerPrecision == .smart)
+        #expect(settings.timerPrecision == .seconds)
         #expect(settings.whistleSound)
         #expect(settings.notifyOnFinish)
         #expect(!settings.launchAtLogin)

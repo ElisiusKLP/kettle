@@ -2,12 +2,13 @@
 # Measures Kettle Dev (release build) idle in the menubar with a task brewing, and fails if
 # it's over the SPEC section 8 budget. Uses a throwaway data folder, never your dev data.
 #
-# The budget applies to the default smart precision (minutes, seconds in the final minute),
-# which outside the final minute behaves exactly like minutes mode. It's measured in four
+# The CPU and wake-up budget applies to smart precision (minutes, seconds in the final
+# minute), the energy-saving choice, which outside the final minute behaves exactly like
+# minutes mode. The default is seconds precision (see docs/DECISIONS.md). It's measured in four
 # 60 s slices and judged on the median slice: macOS sometimes does a burst of work on a
 # newly launched status item 1-3 minutes after launch, which isn't Kettle's steady state.
-# Every slice is printed, so such a burst stays visible. Seconds precision is opt-in: its
-# CPU use is reported for information, and its wake-ups are checked.
+# Every slice is printed, so such a burst stays visible. For seconds precision, CPU use is
+# reported for information, and the footprint and wake-ups are checked.
 #
 #   scripts/memcheck.sh            (normally via make memcheck)
 #

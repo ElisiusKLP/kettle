@@ -160,8 +160,8 @@ struct MenubarTickerTests {
         #expect(wakeUps >= 44 + 60 + 60 + 4 - 2)
     }
 
-    @Test func smartIsTheDefault() {
-        #expect(AppSettings().timerPrecision == .smart)
+    @Test func secondsIsTheDefault() {
+        #expect(AppSettings().timerPrecision == .seconds)
     }
 
     @Test func atMostOneWakeUpPerSecondOrMinute() throws {
