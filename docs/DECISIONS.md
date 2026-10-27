@@ -459,6 +459,10 @@ Reordering in the list, carrying a task over, and a task going back to pending (
 **Chose:** Kettle is GPL-3.0-only, Copyright © 2026 Elisius Krustrup Lyng Pedersen, replacing MIT and "Kettle contributors". `LICENSE` is the verbatim FSF text. `NOTICE.md` holds the copyright and licence notice, and reserves the name, logo, menubar glyph and app icon under GPL section 7(e): forks must rename and replace the icons before distributing. The code that draws the icons stays GPL so forks still build. `Info.plist` and `CONTRIBUTING.md` say the same.
 **Why:** requested by the maintainer: anyone can build on Kettle, but nobody can sell a closed copy or pass a fork off as Kettle. "Only" rather than "or later" keeps future licence versions the copyright holder's choice. SPEC.md and README.md were updated to match, with the maintainer's approval.
 
+### Contributor licence grant
+**Chose:** CONTRIBUTING.md asks contributors to license their work under GPLv3 and also grant the author a non-exclusive licence to distribute it under other terms. They keep their copyright, and the reason (a Mac App Store edition) is stated next to the terms. The PR template has a checkbox to agree. NOTICE.md now opens its brand section by saying the code is fully open.
+**Why:** requested by the maintainer. Without a grant, merged GPL code would block an App Store release. A licence rather than copyright assignment, with the reason given, is the kind contributors trust most.
+
 ### Measurements after the feedback round
 **Measured:** `make memcheck` passes: idle footprint 11.8 MB with a task brewing, 0.008% average CPU and 0 idle wake-ups per minute in smart mode (seconds mode: 12.1 MB, 0.47%, 0.2 wake-ups/s). KettleCore line coverage is 98%. The calendar, the whistle sound and the new menus cost nothing while the popover is closed.
 

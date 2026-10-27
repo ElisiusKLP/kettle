@@ -9,3 +9,4 @@
 - [ ] `make memcheck` passes (if this touches the app target, timers, storage or stats)
 - [ ] No network code, telemetry or new runtime dependencies
 - [ ] Decisions not covered by SPEC.md are recorded in `docs/DECISIONS.md`
+- [ ] I agree to the terms in [Licensing your contribution](../CONTRIBUTING.md#licensing-your-contribution)

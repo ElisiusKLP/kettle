@@ -12,6 +12,8 @@ Kettle is distributed in the hope that it will be useful, but WITHOUT ANY WARRAN
 
 ## Name, logo and icons
 
+This section is only about the name and icons. The code is fully open under the GPL.
+
 The name "Kettle", the kettle logo, the menubar kettle glyph and the app icon are the brand of Elisius Krustrup Lyng Pedersen, who reserves all rights in them. They are not licensed under the GPL. As section 7(e) of the GPL allows, the licence grants no rights to use them.
 
 The source code that draws the logo and icons (`Sources/KettleIcon`, `kettle-tools appicon`) is covered by the GPL like the rest of the code, so you can build, study and change it. That doesn't give you permission to use the brand to identify your own version.

@@ -22,4 +22,14 @@ Thanks for helping. Kettle is small on purpose, so the bar for new features is "
 2. Keep PRs focused, and describe what changed and how you tested it.
 3. If you make a design decision the spec doesn't cover, add a short entry to [docs/DECISIONS.md](docs/DECISIONS.md).
 
-By contributing you agree that your contributions are licensed under the GNU General Public License, version 3 only (see [LICENSE](LICENSE)). Contributing doesn't grant rights to the Kettle name, logo or icons; see [NOTICE.md](NOTICE.md).
+## Licensing your contribution
+
+By opening a pull request you agree to the following:
+
+1. Your contribution is licensed under the GNU General Public License, version 3 only (see [LICENSE](LICENSE)), like the rest of Kettle.
+2. You also grant Elisius Krustrup Lyng Pedersen, the author of Kettle, a perpetual, worldwide, non-exclusive, royalty-free licence to use, modify and distribute your contribution under other terms as well.
+3. You wrote the contribution yourself, or otherwise have the right to submit it under these terms.
+
+You keep the copyright in your contribution. Point 2 exists so the author can also publish Kettle on the Mac App Store, whose terms don't fit the GPL. It doesn't take anything away from the GPL: Kettle's source, including your contribution, stays available under it.
+
+Contributing doesn't grant rights to the Kettle name, logo or icons; see [NOTICE.md](NOTICE.md).
