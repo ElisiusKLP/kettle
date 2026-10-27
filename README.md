@@ -4,7 +4,7 @@
 
 Kettle is a minimalist, open-source macOS menubar app. Each morning you line up your day as time blocks. The current block then brews in your menubar: a little kettle with a live countdown, whose steam slowly fades as time runs out. When the time is up, the kettle whistles.
 
-[![CI](https://github.com/ElisiusKLP/kettle/actions/workflows/ci.yml/badge.svg)](https://github.com/ElisiusKLP/kettle/actions) · MIT License · No telemetry · ~25 MB RAM
+[![CI](https://github.com/ElisiusKLP/kettle/actions/workflows/ci.yml/badge.svg)](https://github.com/ElisiusKLP/kettle/actions) · GPLv3 · No telemetry · ~25 MB RAM
 
 ## Features
 
@@ -50,4 +50,4 @@ Issues and PRs are welcome. Start with [DEVELOPMENT.md](DEVELOPMENT.md) and [CON
 
 ## License
 
-MIT
+GPLv3. See [LICENSE](LICENSE). The Kettle name, logo and icons are not covered by the licence; see [NOTICE.md](NOTICE.md).

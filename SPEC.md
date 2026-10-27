@@ -13,7 +13,7 @@ Principles, in priority order:
 1. **Private.** No network access, no telemetry, no accounts, no analytics, no crash reporters. All data stays on disk in a human-readable format.
 2. **Light.** Kettle runs all day in the background, so it must use as little RAM and CPU as possible. See section 8 for hard budgets.
 3. **Minimal.** One menubar item, one popover, and a settings window. No dock icon.
-4. **Open.** MIT-licensed, developed on GitHub, buildable from the command line, with a fully unit-testable core.
+4. **Open.** GPLv3-licensed, with the Kettle brand reserved, developed on GitHub, buildable from the command line, with a fully unit-testable core.
 
 ## 2. Target platform and stack
 
@@ -41,7 +41,8 @@ kettle/
 ├── README.md
 ├── DEVELOPMENT.md
 ├── SPEC.md
-├── LICENSE                     # MIT
+├── LICENSE                     # GPLv3
+├── NOTICE.md                   # copyright; name, logo and icons reserved
 ├── CONTRIBUTING.md
 ├── PRIVACY.md                  # states plainly: no data leaves the device
 ├── .github/workflows/ci.yml    # build + test + lint + no-network check
@@ -268,7 +269,7 @@ If a feature can't fit these budgets, it stays out of v1 or becomes opt-in, and 
 2. The entitlements file enables App Sandbox and does **not** include `com.apple.security.network.client` or `network.server`.
 3. No analytics, telemetry, crash reporting, update checker, or remote config. Updates come from GitHub Releases.
 4. `PRIVACY.md` states all of the above in plain language.
-5. MIT licence, with `CONTRIBUTING.md`, issue and PR templates, and a CI badge in the README.
+5. GPLv3 licence and `NOTICE.md`, with `CONTRIBUTING.md`, issue and PR templates, and a CI badge in the README.
 
 ## 10. Make targets (the agent must implement these exactly)
 
