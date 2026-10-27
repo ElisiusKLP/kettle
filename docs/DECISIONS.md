@@ -510,5 +510,10 @@ Reordering in the list, carrying a task over, and a task going back to pending (
 **Why:** reported by the maintainer.
 
 ### Bigger resize zones with visible handles
-**Chose:** a block's bottom resize zone is a quarter of its height on screen, 6–12 pt (it was a fixed 6 pt, and blocks under 26 pt had none). The top zone (pending blocks 30 pt or taller) is the same size. Even the shortest blocks (18 pt) get a 6 pt bottom zone, which leaves 12 pt for moving. On hover, a small bar in the label's colour marks each edge that resizes. The cursor zones and the gesture's zone test share one function.
+**Chose:** a block's bottom resize zone is a quarter of its height on screen, 6–12 pt (it was a fixed 6 pt, and blocks under 26 pt had none). The top zone (pending blocks 30 pt or taller) is the same size. Even the shortest blocks (18 pt) get a 6 pt bottom zone, which leaves 12 pt for moving. On hover, a small bar in the label's colour marks each edge that resizes. The gesture's zone test uses the same sizes.
 **Why:** reported by the maintainer: moving and stacking worked, but the edges were very hard to hit.
+
+### The resize cursor follows the pointer
+**Found:** the resize cursor came from invisible strips that pushed it on entering and popped it on leaving. AppKit resets the cursor as views redraw and move, and a missed exit unbalances push and pop, so the arrows were sometimes missing over a zone that did resize.
+**Chose:** each block sets the cursor with `onContinuousHover` on every pointer move, from the same `dragKind` test the gesture uses: up-down arrows over a resize zone, the arrow elsewhere. A resize drag keeps the arrows until it ends. The strips are gone; only the hover handles remain as a visual hint.
+**Why:** reported by the maintainer.

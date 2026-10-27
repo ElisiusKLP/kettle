@@ -148,24 +148,25 @@ struct CalendarDayView: View {
             nudge: { direction in state.nudge(task.id, by: direction * step, now: now) }
         )
         .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
-        .overlay(alignment: .top) {
-            if edges.top > 0 {
-                edge(height: edges.top)
-            }
-        }
-        .overlay(alignment: .bottom) {
-            if edges.bottom > 0 {
-                edge(height: edges.bottom)
-            }
-        }
         .padding(.leading, Self.gutterWidth + 2)
         .offset(y: top)
         .zIndex(dragged != nil ? 1 : 0)
-        .onHover { inside in
-            if inside {
+        .onContinuousHover(coordinateSpace: .named(Self.space)) { phase in
+            switch phase {
+            case let .active(location):
                 hovered = task.id
-            } else if hovered == task.id {
-                hovered = nil
+                // On every move, from the same test the gesture uses, so the cursor always
+                // shows what a press there would do. AppKit resets cursors freely, so setting
+                // it once on entering a zone isn't enough.
+                guard drag == nil else { return }
+                Self.cursor(for: dragKind(task, at: location.y)).set()
+            case .ended:
+                if hovered == task.id {
+                    hovered = nil
+                }
+                if drag == nil {
+                    NSCursor.arrow.set()
+                }
             }
         }
         .gesture(blockGesture(task))
@@ -181,19 +182,12 @@ struct CalendarDayView: View {
         return (top, bottom)
     }
 
-    /// The zone along a block's top or bottom edge: only shows the resize cursor. The block's
-    /// one gesture decides what a drag does from where it starts.
-    private func edge(height: CGFloat) -> some View {
-        Color.clear
-            .frame(height: height)
-            .contentShape(Rectangle())
-            .onHover { inside in
-                if inside {
-                    NSCursor.resizeUpDown.push()
-                } else {
-                    NSCursor.pop()
-                }
-            }
+    /// The up-down arrows over a resize zone, the arrow anywhere else.
+    private static func cursor(for kind: DragKind?) -> NSCursor {
+        switch kind {
+        case .top, .bottom: .resizeUpDown
+        case .move, nil: .arrow
+        }
     }
 
     /// One gesture per block, so moving and resizing can never both happen. Where the press
@@ -206,6 +200,8 @@ struct CalendarDayView: View {
                       let kind = dragKind(task, at: value.startLocation.y)
                 else { return }
                 drag = Drag(taskID: task.id, kind: kind, translation: value.translation.height)
+                // Keep the arrows while resizing, even once the pointer leaves the zone.
+                Self.cursor(for: kind).set()
             }
             .onEnded { value in
                 guard abs(value.translation.height) >= Self.clickDistance else {
