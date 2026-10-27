@@ -3,6 +3,9 @@ import SwiftUI
 
 /// The day plan: day switcher, quick add, the blocks, and the timer controls.
 struct PopoverView: View {
+    /// Fixed, so the popover knows its size before it opens and AppKit can keep it on screen.
+    static let size = CGSize(width: 360, height: 460)
+
     @Bindable var state: PopoverState
     let openSettings: () -> Void
     let openStats: () -> Void
@@ -19,7 +22,7 @@ struct PopoverView: View {
             Divider()
             footer
         }
-        .frame(width: 360, height: 460)
+        .frame(width: Self.size.width, height: Self.size.height)
         .background(hiddenShortcuts)
         .onKeyPress(.space) {
             // Space starts and pauses, except while typing a task.

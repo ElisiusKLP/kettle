@@ -399,3 +399,7 @@ Our own tick allocates nothing and is negligible; the cost is AppKit rendering a
 
 ### Docs
 **Chose:** PRIVACY.md now also covers the notification permission, Login Items, export/import files, delete-all and sandbox file access. Changes to README.md and DEVELOPMENT.md are proposed to the maintainer, not applied (CLAUDE.md).
+
+### The popover is sized before it opens
+**Chose:** the popover's `contentSize` is set to `PopoverView.size` (360 × 460) before `show`, and the hosting controller's `sizingOptions` are empty.
+**Why:** when SwiftUI only reported its size after the popover opened, AppKit positioned it for a near-empty popover, which then grew off the screen edge (reported at the final checkpoint).

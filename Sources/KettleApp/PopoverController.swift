@@ -36,9 +36,14 @@ final class PopoverController: NSObject, NSPopoverDelegate {
         popover.behavior = .transient
         popover.delegate = self
         let state = PopoverState(model: model, onChange: onChange)
-        popover.contentViewController = NSHostingController(
+        let content = NSHostingController(
             rootView: PopoverView(state: state, openSettings: onOpenSettings, openStats: onOpenStats)
         )
+        // Size the popover up front: if it only learns its size from SwiftUI after opening, AppKit
+        // positions it for a tiny size and it then grows off the edge of the screen.
+        content.sizingOptions = []
+        popover.contentViewController = content
+        popover.contentSize = PopoverView.size
         self.popover = popover
         NSApp.activate()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
