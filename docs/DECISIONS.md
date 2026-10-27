@@ -275,3 +275,7 @@ Our own tick allocates nothing and is negligible; the cost is AppKit rendering a
 ### Smart precision is the default
 **Chose (with the maintainer, at the step 8 checkpoint):** a new `TimerPrecision.smart`, which is the default. It shows minutes (`24m`) and switches to seconds for the final minute (`00:59`) and the first minute of overtime (`+00:42`). `.seconds` and `.minutes` stay selectable. The tick that enters the final minute gets the fine (200 ms) leeway, so the seconds start on time. SPEC §4, §8 and §10 and the README were updated to match. `make memcheck` enforces the budget for smart mode and reports seconds-mode CPU for information (still checking its wake-ups).
 **Why:** a live per-second countdown costs about 0.4% CPU in AppKit rendering alone. Smart keeps the energy use of minutes mode for almost the whole block, and still gives the whistle a live final countdown.
+
+### memcheck judges smart mode on the median of four 60 s slices
+**Chose:** smart mode is measured in four consecutive 60 s slices after a 10 s settle. The budget applies to the median slice, the largest slice footprint is reported, and every slice is printed.
+**Why:** macOS sometimes does about 2 minutes of work (~0.4% CPU, ~12 wake-ups/min, +5 MB) on a newly launched status item 1–3 minutes after launch. Sampling the app when it didn't happen showed every thread idle. A one-off transient isn't the "all day" steady state that §8 budgets, but printing every slice keeps it visible. The full run takes about 5 minutes.

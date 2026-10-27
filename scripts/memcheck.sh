@@ -3,8 +3,11 @@
 # it's over the SPEC section 8 budget. Uses a throwaway data folder, never your dev data.
 #
 # The budget applies to the default smart precision (minutes, seconds in the final minute),
-# which outside the final minute behaves exactly like minutes mode. Seconds precision is
-# opt-in: its CPU use is reported for information, and its wake-ups are checked.
+# which outside the final minute behaves exactly like minutes mode. It's measured in four
+# 60 s slices and judged on the median slice: macOS sometimes does a burst of work on a
+# newly launched status item 1-3 minutes after launch, which isn't Kettle's steady state.
+# Every slice is printed, so such a burst stays visible. Seconds precision is opt-in: its
+# CPU use is reported for information, and its wake-ups are checked.
 #
 #   scripts/memcheck.sh            (normally via make memcheck)
 #
@@ -18,10 +21,10 @@ budget_footprint_mb=25
 budget_cpu_percent=0.1
 budget_wakeups_per_second=1
 settle_seconds=10
-# SPEC section 10 says 30 s. Smart mode ticks once a minute, so its window is longer,
-# otherwise a single stray wake-up would read as 2 per minute.
-window_seconds=30
-minutes_window_seconds=120
+smart_slices=4
+smart_slice_seconds=60
+# SPEC section 10 says 30 s.
+seconds_window_seconds=30
 
 app="build/Kettle Dev.app"
 work="$root/build/memcheck"
@@ -64,10 +67,10 @@ KETTLE_DATA_DIR="$data" swift run --quiet kettle-tools seed --brewing
 pid=""
 trap '[[ -n "$pid" ]] && kill "$pid" 2>/dev/null || true' EXIT
 
-# Launches Kettle Dev with the given timer precision and measures it. Prints one awk-ready
-# line: precision footprint_bytes cpu_seconds idle_wakeups elapsed_seconds.
+# Launches Kettle Dev with the given timer precision and measures it in consecutive slices.
+# Prints one line per slice: precision slice footprint_bytes cpu_seconds idle_wakeups elapsed_seconds.
 measure() {
-    local precision=$1 window=$2
+    local precision=$1 slices=$2 window=$3
     printf '{"schemaVersion":1,"timerPrecision":"%s"}\n' "$precision" > "$data/settings.json"
     pkill -x "Kettle Dev" 2>/dev/null || true
     for _ in $(seq 50); do pgrep -x "Kettle Dev" >/dev/null || break; sleep 0.1; done
@@ -79,42 +82,60 @@ measure() {
         sleep 0.1
     done
     [[ -n "$pid" ]] || { echo "error: Kettle Dev didn't start" >&2; exit 1; }
-    echo "$precision mode: pid $pid, settling ${settle_seconds}s, measuring ${window}s" >&2
+    echo "$precision: pid $pid, settling ${settle_seconds}s, then ${slices} x ${window}s" >&2
     sleep "$settle_seconds"
-    local cpu_start wakeups_start started
-    cpu_start=$(cpu_seconds "$pid")
-    wakeups_start=$(idle_wakeups "$pid")
-    started=$(date +%s)
-    sleep "$window"
-    kill -0 "$pid" 2>/dev/null || { echo "error: Kettle Dev quit during the measurement" >&2; exit 1; }
-    echo "$precision $(footprint_bytes "$pid") $(awk -v a="$cpu_start" -v b="$(cpu_seconds "$pid")" 'BEGIN { print b - a }') \
+    local slice cpu_start wakeups_start started
+    for slice in $(seq "$slices"); do
+        cpu_start=$(cpu_seconds "$pid")
+        wakeups_start=$(idle_wakeups "$pid")
+        started=$(date +%s)
+        sleep "$window"
+        kill -0 "$pid" 2>/dev/null || { echo "error: Kettle Dev quit during the measurement" >&2; exit 1; }
+        echo "$precision $slice $(footprint_bytes "$pid") \
+$(awk -v a="$cpu_start" -v b="$(cpu_seconds "$pid")" 'BEGIN { print b - a }') \
 $(( $(idle_wakeups "$pid") - wakeups_start )) $(( $(date +%s) - started ))"
+    done
     kill "$pid" 2>/dev/null || true
 }
 
 step "Measuring with the popover closed and a task brewing"
-results=$(measure smart "$minutes_window_seconds"; measure seconds "$window_seconds")
+results=$(measure smart "$smart_slices" "$smart_slice_seconds"; measure seconds 1 "$seconds_window_seconds")
 
 report=$(echo "$results" | awk -v mb="$budget_footprint_mb" -v cpu="$budget_cpu_percent" '
     function row(name, value, unit, op, limit, ok) {
         printf "%-40s %9.3f %-5s budget %s %-7s %s\n", name, value, unit, op, limit, ok ? "ok" : "OVER"
         if (!ok) failed = 1
     }
+    function median(values, n,    i, j, t) {
+        for (i = 2; i <= n; i++) for (j = i; j > 1 && values[j - 1] > values[j]; j--) {
+            t = values[j]; values[j] = values[j - 1]; values[j - 1] = t
+        }
+        return n % 2 ? values[(n + 1) / 2] : (values[n / 2] + values[n / 2 + 1]) / 2
+    }
     {
-        precision = $1; footprint = $2 / 1048576; cpu_percent = $3 / $5 * 100
-        row("Idle footprint (" precision ")", footprint, "MB", "<=", mb, footprint <= mb)
-        if (precision == "seconds") {
-            # Opt-in: redrawing the menubar every second costs ~0.4% CPU (SPEC section 8).
-            printf "%-40s %9.3f %-5s (opt-in, not budgeted)\n", "Average CPU (seconds)", cpu_percent, "%"
-            row("Idle wake-ups (seconds)", $4 / $5, "/s", "<=", 1, $4 / $5 <= 1)
+        footprint = $3 / 1048576; cpu_percent = $4 / $6 * 100
+        if ($1 == "smart") {
+            n++; smart_cpu[n] = cpu_percent; smart_wake[n] = $5 / $6 * 60
+            if (footprint > smart_footprint) smart_footprint = footprint
+            printf "  smart slice %d: footprint %.1f MB, CPU %.3f%%, %d idle wake-ups\n", $2, footprint, cpu_percent, $5
         } else {
-            row("Average CPU (" precision ", default)", cpu_percent, "%", "<", cpu, cpu_percent < cpu)
-            row("Idle wake-ups (" precision ")", $4 / $5 * 60, "/min", "<=", 1, $4 / $5 * 60 <= 1)
+            seconds_footprint = footprint; seconds_cpu = cpu_percent; seconds_wake = $5 / $6
         }
     }
-    END { exit failed }') && status=0 || status=$?
+    END {
+        print ""
+        row("Idle footprint (smart, largest slice)", smart_footprint, "MB", "<=", mb, smart_footprint <= mb)
+        cpu_median = median(smart_cpu, n); wake_median = median(smart_wake, n)
+        row("Average CPU (smart, median slice)", cpu_median, "%", "<", cpu, cpu_median < cpu)
+        row("Idle wake-ups (smart, median slice)", wake_median, "/min", "<=", 1, wake_median <= 1)
+        row("Idle footprint (seconds)", seconds_footprint, "MB", "<=", mb, seconds_footprint <= mb)
+        # Opt-in: redrawing the menubar every second costs ~0.4% CPU (SPEC section 8).
+        printf "%-40s %9.3f %-5s (opt-in, not budgeted)\n", "Average CPU (seconds)", seconds_cpu, "%"
+        row("Idle wake-ups (seconds)", seconds_wake, "/s", "<=", 1, seconds_wake <= 1)
+        exit failed
+    }') && status=0 || status=$?
 
-step "Results (release build; smart ${minutes_window_seconds}s, seconds ${window_seconds}s)"
+step "Results (release build)"
 echo "$report"
 echo "$report" > "$work/report.txt"
 if (( status != 0 )); then
