@@ -43,6 +43,7 @@ Choices the spec doesn't cover, one entry each: what was chosen and why. Newest 
 ### Licence holder
 **Chose:** "Copyright (c) 2026 Kettle contributors".
 **Why:** the spec doesn't name a holder, and this is the usual choice for community projects. It's easy to change.
+Superseded by "GPLv3 and a reserved brand" below.
 
 ### `make test FILTER=…` and test naming
 **Chose:** `make test` takes an optional `FILTER` (passed to `swift test --filter`), and DEVELOPMENT.md uses it instead of bare `swift test --filter`. Test functions follow the Swift Testing style, without a `test` prefix (`SteamLevelTests/stepBoundaries`).
@@ -453,3 +454,7 @@ Reordering in the list, carrying a task over, and a task going back to pending (
 ### Calendar day view
 **Chose:** `AppSettings.planLayout` is `.calendar` (default) or `.list`. The calendar shows the whole day with time marks down the left every `calendarIntervalMinutes` (15, 30 or 60; default 60, chosen in Settings → General). Finer marks get a taller scale (1.6, 1.0 and 0.75 pt per minute), so it stays readable. Hours use the locale's format ("9 AM" or "09"), marks between them show ":30". If blocks run past midnight, the calendar extends to the next mark after the last one (up to noon the next day). It opens scrolled to an hour before now (today) or before the first block. A red line marks now. Blocks are at least 16 pt tall, so very short ones can overlap the next. Only pending blocks can be dragged, and drops snap to 5 minutes. Hovering a block shows − and + buttons for the duration step. Right-click gives the same menu as in the list.
 **Why:** requested by the maintainer as a compact Calendar-style day view. A fixed snap keeps drops predictable whatever the mark spacing. Dragging finished or running blocks would rewrite history.
+
+### GPLv3 and a reserved brand
+**Chose:** Kettle is GPL-3.0-only, Copyright © 2026 Elisius Krustrup Lyng Pedersen, replacing MIT and "Kettle contributors". `LICENSE` is the verbatim FSF text. `NOTICE.md` holds the copyright and licence notice, and reserves the name, logo, menubar glyph and app icon under GPL section 7(e): forks must rename and replace the icons before distributing. The code that draws the icons stays GPL so forks still build. `Info.plist` and `CONTRIBUTING.md` say the same.
+**Why:** requested by the maintainer: anyone can build on Kettle, but nobody can sell a closed copy or pass a fork off as Kettle. "Only" rather than "or later" keeps future licence versions the copyright holder's choice. The spec says MIT (§1, §3, §9), so SPEC.md and README.md need updating separately.

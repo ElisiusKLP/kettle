@@ -22,4 +22,4 @@ Thanks for helping. Kettle is small on purpose, so the bar for new features is "
 2. Keep PRs focused, and describe what changed and how you tested it.
 3. If you make a design decision the spec doesn't cover, add a short entry to [docs/DECISIONS.md](docs/DECISIONS.md).
 
-By contributing you agree that your contributions are licensed under the MIT License.
+By contributing you agree that your contributions are licensed under the GNU General Public License, version 3 only (see [LICENSE](LICENSE)). Contributing doesn't grant rights to the Kettle name, logo or icons; see [NOTICE.md](NOTICE.md).
