@@ -70,17 +70,16 @@ public final class KettleModel {
 
     // MARK: Planning
 
-    /// Adds a task to the timer's plan from a parsed quick-add entry.
+    /// Adds a pending task from a parsed quick-add entry to `date`'s plan (the timer's plan if
+    /// nil), creating its label if needed.
     @discardableResult
-    public func add(_ entry: QuickAddEntry) -> PlanTask {
+    public func add(_ entry: QuickAddEntry, to date: LocalDate? = nil) -> PlanTask? {
         var newLabels = labels
-        var added = PlanTask(title: entry.title, plannedMinutes: entry.minutes) // replaced by the edit below
-        perform { engine in
-            engine.editPlan { plan in
-                added = PlanEngine.add(entry, to: &plan, labels: &newLabels)
-            }
+        var added: PlanTask?
+        editPlan(for: date ?? engine.plan.date) { plan in
+            added = PlanEngine.add(entry, to: &plan, labels: &newLabels)
         }
-        if newLabels != labels {
+        if added != nil, newLabels != labels {
             labels = newLabels
             store.saveLabels(labels)
         }
@@ -90,6 +89,55 @@ public final class KettleModel {
     /// Applies any `PlanEngine` edit to the timer's plan.
     public func editPlan(_ edit: (inout DayPlan) -> Void) {
         perform { $0.editPlan(edit) }
+    }
+
+    /// The plan for `date`: the timer's own plan if it's that day, otherwise read from disk and
+    /// not kept, so only today's plan stays in memory (SPEC section 7).
+    public func plan(for date: LocalDate) throws -> DayPlan {
+        date == engine.plan.date ? engine.plan : try store.loadPlan(for: date)
+    }
+
+    /// Applies a `PlanEngine` edit to any day's plan. Another day's plan is loaded, edited,
+    /// saved and dropped again.
+    public func editPlan(for date: LocalDate, _ edit: (inout DayPlan) -> Void) {
+        guard date != engine.plan.date else {
+            editPlan(edit)
+            return
+        }
+        do {
+            var plan = try store.loadPlan(for: date)
+            let before = plan
+            edit(&plan)
+            guard plan != before else { return }
+            store.savePlan(plan)
+            try cache.record(plan)
+        } catch {
+            onError?(error)
+        }
+    }
+
+    /// "Carry over unfinished": moves yesterday's pending and paused tasks to the end of
+    /// today's plan. Only when the timer is on today.
+    /// - Returns: the number of tasks moved.
+    @discardableResult
+    public func carryOverUnfinished() -> Int {
+        let today = today
+        guard engine.plan.date == today else { return 0 }
+        do {
+            var yesterday = try store.loadPlan(for: today.adding(days: -1))
+            var moved = 0
+            editPlan { plan in
+                moved = PlanEngine.carryOver(from: &yesterday, into: &plan)
+            }
+            if moved > 0 {
+                store.savePlan(yesterday)
+                try cache.record(yesterday)
+            }
+            return moved
+        } catch {
+            onError?(error)
+            return 0
+        }
     }
 
     public func updateSettings(_ newSettings: AppSettings) {

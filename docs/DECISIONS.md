@@ -279,3 +279,33 @@ Our own tick allocates nothing and is negligible; the cost is AppKit rendering a
 ### memcheck judges smart mode on the median of four 60 s slices
 **Chose:** smart mode is measured in four consecutive 60 s slices after a 10 s settle. The budget applies to the median slice, the largest slice footprint is reported, and every slice is printed.
 **Why:** macOS sometimes does about 2 minutes of work (~0.4% CPU, ~12 wake-ups/min, +5 MB) on a newly launched status item 1–3 minutes after launch. Sampling the app when it didn't happen showed every thread idle. A one-off transient isn't the "all day" steady state that §8 budgets, but printing every slice keeps it visible. The full run takes about 5 minutes.
+
+## Step 9: Popover
+
+### Clicks
+**Chose:** left-click toggles the popover. Right-click (or control-click) opens a small menu with Settings… and Stats… (enabled in steps 10 and 12) and Quit Kettle. The menu is built when needed and detached again.
+**Why:** the popover is the main surface. Quit has to live somewhere, and an accessory app has no menu bar of its own.
+
+### Popover state is a snapshot, not a live binding
+**Chose:** an `@Observable` `PopoverState` (Observation framework, not Combine) is created with the `NSHostingController` when the popover opens, and both are released in `popoverDidClose`. It copies the shown day's plan, labels and settings from `KettleModel`, and reloads after each action.
+**Why:** nothing observable or SwiftUI-related exists while the popover is closed (§8 rule 2), and the core stays free of UI frameworks. The only live parts are the derived times (refreshed every minute) and the active row's countdown (every second), both via `TimelineView`, which runs only while the popover is visible.
+
+### Planning other days
+**Chose:** ⌘← / ⌘→ switch days. Other days' plans are read from disk on demand, edited through `KettleModel.editPlan(for:)`, saved and dropped. Start, Done and Keep brewing appear only on the timer's day. On other days the footer says "Planning tomorrow" and offers "Back to today". Clicking the date title also returns to today.
+**Why:** §5.1 (plan tomorrow tonight) and §7 (only today's plan stays in memory).
+
+### Carry over
+**Chose:** "Carry over N" appears in the footer only when today is shown and yesterday has pending or paused tasks.
+**Why:** it keeps the footer quiet on most days.
+
+### Row details
+**Chose:** each row shows the label colour, the title (struck through if skipped, dimmed if finished), "start–end · label · status", the planned minutes plus extensions, and a stepper (±5 minutes; disabled for finished tasks). Its right-click menu offers Start, Skip and Delete. Drag reorders the list. The popover's countdown always shows seconds.
+**Why:** this is what §5.1 asks for. Per-second updates inside an open popover cost nothing while it's closed. A scroll gesture on the duration is left out: the stepper covers resizing and doesn't fight with scrolling the list.
+
+### Shortcuts
+**Chose:** ⌘N focuses quick add, ⌘↩ is Done, ⌘E is Keep brewing, ⌘←/⌘→ change day. `Space` for start/pause comes in step 13.
+**Why:** `Space` needs care so it doesn't fire while typing in quick add.
+
+### Quick-add errors are shown inline
+**Chose:** invalid input keeps the text and shows a one-line hint under the field.
+**Why:** the user can fix the input without retyping it.

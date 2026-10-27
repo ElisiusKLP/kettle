@@ -4,8 +4,9 @@ import KettleIcon
 
 /// The menubar kettle: the pre-rendered icons, the countdown, and the single timer that
 /// drives them. It touches the status item only when what's shown changes, and doesn't tick
-/// at all while nothing is brewing or the Mac (or its screens) are asleep.
-final class StatusItemController: NSObject, NSMenuDelegate {
+/// at all while nothing is brewing or the Mac (or its screens) are asleep. Left-click opens
+/// the popover; right-click opens a small menu.
+final class StatusItemController: NSObject {
     private let model: KettleModel
     private let statusItem: NSStatusItem
     private let images: [IconState: NSImage]
@@ -13,6 +14,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let timer = TickTimer()
     private var ticker = MenubarTicker()
     private var power: PowerEvents?
+    private var popover: PopoverController?
 
     init(model: KettleModel, style: KettleIcon.Style) {
         self.model = model
@@ -23,10 +25,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         if let button = statusItem.button {
             button.imagePosition = .imageLeft
             button.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+            button.target = self
+            button.action = #selector(clicked)
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
-        let menu = NSMenu()
-        menu.delegate = self
-        statusItem.menu = menu
+        popover = PopoverController(model: model) { [weak self] in self?.refresh() }
 
         timer.onFire = { [weak self] in self?.tick() }
         power = PowerEvents(
@@ -76,74 +79,30 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         tick()
     }
 
-    // MARK: Menu (temporary until the popover in build step 9)
+    // MARK: Clicks
 
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        menu.removeAllItems()
-        let engine = model.engine
-        if let task = engine.activeTask {
-            let remaining = CountdownFormatter.string(
-                remaining: task.remainingSeconds(at: clock.now),
-                precision: .seconds
-            )
-            menu.addItem(
-                withTitle: "\(task.status == .paused ? "Paused" : "Brewing"): \(task.title) \(remaining)",
-                action: nil,
-                keyEquivalent: ""
-            )
-        } else if PlanEngine.isComplete(engine.plan) {
-            menu.addItem(withTitle: "All brewed for today.", action: nil, keyEquivalent: "")
-        } else if engine.plan.tasks.isEmpty {
-            menu.addItem(withTitle: "Nothing on the stove.", action: nil, keyEquivalent: "")
+    @objc private func clicked() {
+        guard let button = statusItem.button else { return }
+        let event = NSApp.currentEvent
+        if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
+            popover?.close()
+            showMenu()
+        } else {
+            popover?.toggle(relativeTo: button)
         }
-        menu.addItem(.separator())
+    }
 
-        let toggleTitle = engine.isBrewing ? "Pause" : engine.activeTask == nil ? "Start" : "Resume"
-        add(
-            toggleTitle,
-            to: menu,
-            enabled: engine.activeTask != nil || engine.plan.tasks.contains { $0.status == .pending }
-        ) {
-            $0.toggle()
-        }
-        add("Done", to: menu, enabled: engine.activeTask != nil) { $0.done() }
-        add("Keep brewing +\(model.settings.extendMinutes)m", to: menu, enabled: engine.isBrewing) { $0.keepBrewing() }
-        add("Skip", to: menu, enabled: engine.activeTask != nil) { $0.skip() }
-        menu.addItem(.separator())
-        add("Add 2-minute test task", to: menu, enabled: true) {
-            $0.add(QuickAddEntry(title: "Steam test", minutes: 2, labelName: "qa"))
-        }
+    /// Built when needed and detached again, so a left-click keeps opening the popover.
+    private func showMenu() {
+        let menu = NSMenu()
+        let settings = menu.addItem(withTitle: "Settings…", action: nil, keyEquivalent: ",")
+        settings.isEnabled = false // build step 10
+        let stats = menu.addItem(withTitle: "Stats…", action: nil, keyEquivalent: "")
+        stats.isEnabled = false // build step 12
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Kettle", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-    }
-
-    private func add(_ title: String, to menu: NSMenu, enabled: Bool, action: @escaping (KettleModel) -> Void) {
-        let item = MenuAction(title: title) { [weak self] in
-            guard let self else { return }
-            action(model)
-            refresh()
-        }
-        item.isEnabled = enabled
-        menu.addItem(item)
-    }
-}
-
-/// A menu item that runs a closure.
-private final class MenuAction: NSMenuItem {
-    private let handler: () -> Void
-
-    init(title: String, handler: @escaping () -> Void) {
-        self.handler = handler
-        super.init(title: title, action: #selector(run), keyEquivalent: "")
-        target = self
-    }
-
-    @available(*, unavailable)
-    required init(coder _: NSCoder) {
-        fatalError("not used")
-    }
-
-    @objc private func run() {
-        handler()
+        statusItem.menu = menu
+        statusItem.button?.performClick(nil)
+        statusItem.menu = nil
     }
 }

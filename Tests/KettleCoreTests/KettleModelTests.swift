@@ -32,7 +32,7 @@ struct KettleModelTests {
     @Test func quickAddSavesThePlanAndNewLabels() throws {
         let store = makeStore()
         let model = try makeModel(store)
-        let task = try model.add(QuickAddParser.parse("Write report 45m #work"))
+        let task = try #require(model.add(QuickAddParser.parse("Write report 45m #work")))
         try store.flush()
 
         let reopened = try makeModel()
@@ -96,8 +96,8 @@ struct KettleModelTests {
     @Test func skipAndPlanEditsAreSaved() throws {
         let store = makeStore()
         let model = try makeModel(store)
-        let first = model.add(QuickAddEntry(title: "A", minutes: 10, labelName: nil))
-        let second = model.add(QuickAddEntry(title: "B", minutes: 10, labelName: nil))
+        let first = try #require(model.add(QuickAddEntry(title: "A", minutes: 10, labelName: nil)))
+        let second = try #require(model.add(QuickAddEntry(title: "B", minutes: 10, labelName: nil)))
         model.skip(taskID: first.id)
         model.editPlan { PlanEngine.adjust(taskID: second.id, byMinutes: 5, in: &$0) }
         model.pause() // nothing brewing: no change, no save
@@ -154,5 +154,68 @@ struct KettleModelTests {
         #expect(folder.allFiles().isEmpty)
         model.flush()
         #expect(folder.allFiles().contains("plans/2026-10-26.json"))
+    }
+
+    // MARK: Other days
+
+    @Test func otherDaysAreEditedOnDiskAndNotKept() throws {
+        let store = makeStore()
+        let model = try makeModel(store)
+        let tomorrow = today.adding(days: 1)
+        let added = try #require(model.add(
+            QuickAddEntry(title: "Plan ahead", minutes: 25, labelName: "work"),
+            to: tomorrow
+        ))
+        #expect(model.engine.plan.tasks.isEmpty)
+        #expect(model.labels.map(\.name) == ["work"])
+        #expect(try model.plan(for: tomorrow).tasks == [added])
+
+        model.editPlan(for: tomorrow) { PlanEngine.adjust(taskID: added.id, byMinutes: 5, in: &$0) }
+        model.editPlan(for: tomorrow) { _ in } // no change, no save
+        try store.flush()
+        #expect(try makeModel().plan(for: tomorrow).tasks.first?.plannedMinutes == 30)
+    }
+
+    @Test func planForTodayIsTheTimersPlan() throws {
+        let model = try makeModel()
+        model.add(QuickAddEntry(title: "A", minutes: 5, labelName: nil))
+        model.start()
+        #expect(try model.plan(for: today) == model.engine.plan)
+    }
+
+    @Test func carryOverMovesYesterdaysUnfinishedTasks() throws {
+        let store = makeStore()
+        store.savePlan(DayPlan(date: today.adding(days: -1), tasks: [
+            PlanTask(title: "Done", plannedMinutes: 10, status: .done),
+            PlanTask(title: "Left over", plannedMinutes: 20),
+        ]))
+        let model = try makeModel(store)
+        #expect(try PlanEngine.unfinishedCount(model.plan(for: today.adding(days: -1))) == 1)
+
+        #expect(model.carryOverUnfinished() == 1)
+        #expect(model.carryOverUnfinished() == 0)
+        try store.flush()
+
+        let reopened = try makeModel()
+        #expect(reopened.engine.plan.tasks.map(\.title) == ["Left over"])
+        #expect(try reopened.plan(for: today.adding(days: -1)).tasks.map(\.title) == ["Done"])
+    }
+
+    @Test func carryOverNeedsTheTimerOnToday() throws {
+        let model = try makeModel()
+        model.add(QuickAddEntry(title: "Late", minutes: 120, labelName: nil))
+        model.start()
+        clock.advance(by: 86400) // the next day, still brewing yesterday's task
+        #expect(model.carryOverUnfinished() == 0)
+    }
+
+    @Test func editingAnUnreadableDayReportsTheError() throws {
+        try folder.write("{ broken", to: "plans/2026-10-28.json")
+        let model = try makeModel()
+        var errors: [Error] = []
+        model.onError = { errors.append($0) }
+        #expect(model.add(QuickAddEntry(title: "A", minutes: 5, labelName: "new"), to: .ymd("2026-10-28")) == nil)
+        #expect(model.labels.isEmpty)
+        #expect(errors.count == 1)
     }
 }

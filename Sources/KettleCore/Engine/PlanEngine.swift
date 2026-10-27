@@ -61,6 +61,11 @@ public enum PlanEngine {
         return blocks
     }
 
+    /// Tasks that "Carry over unfinished" would move: pending and paused ones.
+    public static func unfinishedCount(_ plan: DayPlan) -> Int {
+        plan.tasks.count { $0.status == .pending || $0.status == .paused }
+    }
+
     /// True when the plan has tasks and every one is done or skipped: "All brewed for today."
     public static func isComplete(_ plan: DayPlan) -> Bool {
         !plan.tasks.isEmpty && plan.tasks.allSatisfy(\.isFinished)
