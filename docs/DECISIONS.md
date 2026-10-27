@@ -473,3 +473,14 @@ Reordering in the list, carrying a task over, and a task going back to pending (
 ### Calendar edits keep the other blocks in place
 **Chose:** every calendar drag (move or either edge) first gives each pending task its current start as its fixed start (`CalendarEdit.freeze`). The dragged block then lands where it's dropped, and only blocks it overlaps are pushed down, each just enough, and so on down the day. Blocks before it never move, and a block dragged away or made shorter leaves a gap rather than pulling the rest up. Blocks starting after midnight keep following. The calendar edits moved from `PlanEngine` into a `CalendarEdit` value holding the schedule before the edit, the time and the calendar.
 **Why:** reported by the maintainer: dropping a block onto another still didn't push it properly. Unpinned blocks reflowed to close the gap left by the dragged one, so the block being dropped onto could jump up mid-drag (for example, past its midpoint, a 09:30 block jumped to 09:00), and nothing stayed put to push against. The trade-off: after a calendar drag, finishing a task early leaves a gap before the next one instead of moving it up. A block's right-click menu offers "Unpin from…" to let it follow again.
+
+### Calendar blocks never overlap on screen; fixed starts are timestamps
+**Found:** the maintainer's dev plan had several very short blocks (two 2-minute tasks, a 1-minute one, a skipped one with no length). At 0.75 pt per minute they were drawn at the 16 pt minimum, so each reached into the next block and was hidden under it. Small blocks were also mostly resize strip, so trying to move one often shrank it instead, down to 1 minute. And fixed starts were `HH:mm` on the plan's day, so a drop after midnight was clamped back to 23:55.
+**Chose:**
+- The calendar lays blocks out top to bottom: each is drawn at its time or just below the block before, whichever is lower, at least 18 pt tall. Blocks never overlap on screen. A run of short blocks drifts a little below its times until the next gap.
+- Blocks under 26 pt on screen have no resize strips: dragging them always moves them. Edges can't make a block shorter than 5 minutes (`CalendarEdit.minimumMinutes`).
+- Drags change times by the distance moved on screen, snapped to 5 minutes, and can go past midnight (up to the calendar's end).
+- `PlanTask.fixedStart` is now a timestamp (ISO 8601, like `brewingSince`), so it works across midnight. The few `HH:mm` values written by development builds are ignored when read.
+- During a drag, blocks are drawn in the plan's own order, which doesn't change mid-drag, so the dragged block keeps its gesture.
+- A randomised test (500 plans, every drag kind) checks that blocks never overlap, other pending blocks never move up, and a moved block never starts before its drop.
+**Why:** reported by the maintainer: blocks still stacked, one could get lost under another, and the last of three wasn't always pushed all the way down.

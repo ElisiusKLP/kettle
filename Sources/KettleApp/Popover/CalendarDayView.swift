@@ -6,6 +6,9 @@ import SwiftUI
 /// time, which pins them there (`CalendarEdit`). Dragging a block's bottom edge changes its
 /// duration, and a pending block's top edge its start. While dragging, the whole day is laid
 /// out as if dropped there, so the other blocks make room instead of being covered.
+///
+/// Blocks never overlap on screen: a short block is drawn at `minimumBlockHeight`, and the
+/// blocks after it move down as far as needed to stay below it.
 struct CalendarDayView: View {
     let state: PopoverState
     let now: Date
@@ -13,7 +16,11 @@ struct CalendarDayView: View {
     /// Drops snap to this many minutes.
     static let snapMinutes = 5
     static let gutterWidth: CGFloat = 46
-    static let minimumBlockHeight: CGFloat = 16
+    static let minimumBlockHeight: CGFloat = 18
+    /// Space between blocks that touch.
+    static let blockGap: CGFloat = 1
+    /// Blocks shorter than this on screen have no resize edges, so they're easy to move.
+    static let minimumResizableHeight: CGFloat = 26
     /// Room above midnight's mark so its label isn't cut off.
     static let topInset: CGFloat = 8
     /// Blocks running past midnight extend the calendar, up to noon the next day.
@@ -51,14 +58,19 @@ struct CalendarDayView: View {
     var body: some View {
         let (plan, blocks) = preview(state.calendarBlocks(now: now))
         let tasks = Dictionary(uniqueKeysWithValues: plan.tasks.map { ($0.id, $0) })
+        let frames = layout(blocks)
         let length = dayLength(blocks)
         ScrollViewReader { proxy in
             ScrollView {
                 ZStack(alignment: .topLeading) {
                     marks(length)
-                    ForEach(blocks, id: \.taskID) { block in
-                        if let task = tasks[block.taskID] {
-                            blockView(task, block)
+                    // In the shown plan's order, which doesn't change during a drag, so the
+                    // dragged block keeps its identity (and its gesture).
+                    ForEach(state.plan.tasks) { original in
+                        if let task = tasks[original.id], let block = blocks.first(where: { $0.taskID == original.id }),
+                           let frame = frames[original.id]
+                        {
+                            blockView(task, block, frame: frame)
                         }
                     }
                     if state.date == state.today {
@@ -136,10 +148,28 @@ struct CalendarDayView: View {
 
     // MARK: Blocks
 
-    private func blockView(_ task: PlanTask, _ block: ScheduledBlock) -> some View {
-        let top = y(minutes: minutes(block.start))
-        let bottom = y(minutes: minutes(block.end))
-        let height = max(Self.minimumBlockHeight, bottom - top)
+    /// Where each block is drawn: at its time, unless the block before it (drawn taller than
+    /// its time, because it's short) is in the way.
+    private func layout(_ blocks: [ScheduledBlock]) -> [UUID: (top: CGFloat, height: CGFloat)] {
+        var frames: [UUID: (top: CGFloat, height: CGFloat)] = [:]
+        var floor = -CGFloat.infinity
+        for block in blocks {
+            let top = max(y(minutes: minutes(block.start)), floor)
+            let height = max(Self.minimumBlockHeight, y(minutes: minutes(block.end)) - y(minutes: minutes(block.start)))
+            frames[block.taskID] = (top, height)
+            floor = top + height + Self.blockGap
+        }
+        return frames
+    }
+
+    private func blockView(
+        _ task: PlanTask,
+        _ block: ScheduledBlock,
+        frame: (top: CGFloat, height: CGFloat)
+    ) -> some View {
+        let top = frame.top
+        let height = frame.height
+        let resizable = height >= Self.minimumResizableHeight
         let dragged = drag?.taskID == task.id ? drag?.kind : nil
         return CalendarBlock(
             task: task,
@@ -153,13 +183,13 @@ struct CalendarDayView: View {
         )
         .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
         .overlay(alignment: .top) {
-            if task.status == .pending {
-                edge(task, .top, height: height)
+            if resizable, task.status == .pending {
+                edge(task, .top)
             }
         }
         .overlay(alignment: .bottom) {
-            if !task.isFinished {
-                edge(task, .bottom, height: height)
+            if resizable, !task.isFinished {
+                edge(task, .bottom)
             }
         }
         .padding(.leading, Self.gutterWidth + 2)
@@ -169,9 +199,9 @@ struct CalendarDayView: View {
     }
 
     /// The strip along a block's top or bottom edge that resizes it, with the resize cursor.
-    private func edge(_ task: PlanTask, _ kind: DragKind, height: CGFloat) -> some View {
+    private func edge(_ task: PlanTask, _ kind: DragKind) -> some View {
         Color.clear
-            .frame(height: min(Self.edgeHeight, height / 4))
+            .frame(height: Self.edgeHeight)
             .contentShape(Rectangle())
             .onHover { inside in
                 if inside {
@@ -206,23 +236,22 @@ struct CalendarDayView: View {
         return (plan, state.calendarBlocks(for: plan, now: now))
     }
 
-    /// The plan edit a drag makes, worked out against the blocks as they were before it.
+    /// The plan edit a drag makes, worked out against the blocks as they were before it. A
+    /// drag moves the start or end by as many minutes as it moved on screen, snapped.
     private func change(for drag: Drag, blocks: [ScheduledBlock]) -> ((inout DayPlan) -> Void)? {
         guard let block = blocks.first(where: { $0.taskID == drag.taskID }) else { return nil }
         let moved = Double(drag.translation / pointsPerMinute)
-        let edit = CalendarEdit(schedule: blocks, now: state.date == state.today ? now : nil, calendar: state.calendar)
+        let edit = CalendarEdit(schedule: blocks, now: state.date == state.today ? now : nil)
         let taskID = drag.taskID
         switch drag.kind {
         case .move:
-            let time = localTime(snapped(offset(block.start) + moved))
-            return { edit.move(taskID, to: time, in: &$0) }
+            let start = snapped(block.start, by: moved)
+            return { edit.move(taskID, to: start, in: &$0) }
         case .top:
-            // At least one snap step before the end.
-            let latest = Int(offset(block.end)) - Self.snapMinutes
-            let time = localTime(min(snapped(offset(block.start) + moved), latest))
-            return { edit.resize(taskID, start: time, in: &$0) }
+            let start = snapped(block.start, by: moved)
+            return { edit.resize(taskID, start: start, in: &$0) }
         case .bottom:
-            let end = dayStart + TimeInterval(snapped(offset(block.end) + moved) * 60)
+            let end = snapped(block.end, by: moved)
             return { edit.resize(taskID, end: end, in: &$0) }
         }
     }
@@ -250,15 +279,12 @@ struct CalendarDayView: View {
         }
     }
 
-    /// Minutes since the start of the shown day, rounded to the snap step.
-    private func snapped(_ minutes: Double) -> Int {
-        Int((minutes / Double(Self.snapMinutes)).rounded()) * Self.snapMinutes
-    }
-
-    /// A time on the shown day (fixed starts can't run past midnight).
-    private func localTime(_ minutes: Int) -> LocalTime {
-        let clamped = min(max(minutes, 0), 24 * 60 - Self.snapMinutes)
-        return LocalTime(hour: clamped / 60, minute: clamped % 60) ?? .midnight
+    /// `date` moved by `minutes`, on the snap grid, kept within what the calendar shows.
+    private func snapped(_ date: Date, by minutes: Double) -> Date {
+        let raw = offset(date) + minutes
+        let snapped = Int((raw / Double(Self.snapMinutes)).rounded()) * Self.snapMinutes
+        let clamped = min(max(snapped, 0), Self.maximumMinutes - Self.snapMinutes)
+        return dayStart + TimeInterval(clamped * 60)
     }
 
     // MARK: Geometry
@@ -291,102 +317,4 @@ struct CalendarDayView: View {
 /// What a calendar drag moves: the whole block, or one of its edges.
 private enum DragKind {
     case move, top, bottom
-}
-
-/// One block in the calendar: label colour, title, times when there's room, and the countdown or
-/// length in the right corner.
-private struct CalendarBlock: View {
-    enum Corner {
-        case countdown
-        case text(String, emphasised: Bool)
-    }
-
-    let task: PlanTask
-    let label: KettleCore.Label?
-    let block: ScheduledBlock
-    let isActive: Bool
-    let isDragged: Bool
-    /// Room for a second line with the times.
-    let showsDetails: Bool
-    let corner: Corner
-    let state: PopoverState
-
-    private var color: Color {
-        label.map { Color(hex: $0.colorHex) } ?? .secondary
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 4) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 3) {
-                    if task.status == .done {
-                        Image(systemName: "checkmark").font(.caption2.bold())
-                    }
-                    Text(task.title)
-                        .font(.caption.weight(.medium))
-                        .strikethrough(task.status == .skipped)
-                        .lineLimit(1)
-                }
-                if showsDetails {
-                    Text(details).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                }
-            }
-            .accessibilityElement(children: .combine)
-            Spacer(minLength: 0)
-            switch corner {
-            case .countdown:
-                Countdown(task: task).font(.caption.monospacedDigit().weight(.medium))
-            case let .text(text, emphasised):
-                Text(text)
-                    .font(.caption.monospacedDigit().weight(emphasised ? .bold : .regular))
-                    .foregroundStyle(emphasised ? .primary : .secondary)
-            }
-        }
-        .padding(.leading, 7)
-        .padding(.trailing, 4)
-        .padding(.vertical, 1)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .foregroundStyle(task.isFinished ? .secondary : .primary)
-        .background(alignment: .leading) {
-            ZStack(alignment: .leading) {
-                // Opaque underneath, so the time marks don't show through the tint.
-                RoundedRectangle(cornerRadius: 4).fill(Color(nsColor: .windowBackgroundColor))
-                RoundedRectangle(cornerRadius: 4).fill(color.opacity(isActive ? 0.35 : 0.2))
-                RoundedRectangle(cornerRadius: 1.5).fill(color).frame(width: 3)
-            }
-            .opacity(task.isFinished ? 0.55 : 1)
-        }
-        .overlay {
-            if isActive {
-                RoundedRectangle(cornerRadius: 4).strokeBorder(color, lineWidth: 1)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 4))
-        .shadow(color: .black.opacity(isDragged ? 0.25 : 0), radius: 3, y: 1)
-        .contentShape(Rectangle())
-        .contextMenu { TaskMenu(task: task, state: state) }
-        .help(help)
-    }
-
-    private var help: String {
-        switch task.status {
-        case .pending: "Drag to move. Drag the top or bottom edge to change the time."
-        case .brewing, .paused: "Drag the bottom edge to change the length."
-        case .done, .skipped: ""
-        }
-    }
-
-    /// "09:00–09:45 · work · Paused"
-    private var details: String {
-        let start = block.start.formatted(date: .omitted, time: .shortened)
-        let end = block.end.formatted(date: .omitted, time: .shortened)
-        var parts = ["\(start)–\(end)"]
-        if let label {
-            parts.append(label.name)
-        }
-        if task.status == .paused {
-            parts.append("Paused")
-        }
-        return parts.joined(separator: " · ")
-    }
 }

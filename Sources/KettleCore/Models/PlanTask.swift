@@ -27,10 +27,10 @@ public struct PlanTask: Codable, Identifiable, Hashable, Sendable {
     /// Keep brewing minutes added during the open session. Moves to `Session.extensionsMinutes`
     /// when the session closes.
     public var sessionExtensionMinutes: Int
-    /// When the block starts, on its plan's day. Set by dragging it in the calendar (it then
-    /// starts no earlier than this) and by starting it (when it actually started). Without it,
-    /// the block follows the one before.
-    public var fixedStart: LocalTime?
+    /// When the block starts. Set by dragging it in the calendar (it then starts no earlier
+    /// than this, which may be after midnight) and by starting it (when it actually started).
+    /// Without it, the block follows the one before.
+    public var fixedStart: Date?
 
     public init(
         id: UUID = UUID(),
@@ -43,7 +43,7 @@ public struct PlanTask: Codable, Identifiable, Hashable, Sendable {
         brewedSeconds: Int = 0,
         brewingSince: Date? = nil,
         sessionExtensionMinutes: Int = 0,
-        fixedStart: LocalTime? = nil
+        fixedStart: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -96,7 +96,8 @@ public struct PlanTask: Codable, Identifiable, Hashable, Sendable {
             brewedSeconds: container.decodeIfPresent(Int.self, forKey: .brewedSeconds) ?? 0,
             brewingSince: container.decodeIfPresent(Date.self, forKey: .brewingSince),
             sessionExtensionMinutes: container.decodeIfPresent(Int.self, forKey: .sessionExtensionMinutes) ?? 0,
-            fixedStart: container.decodeIfPresent(LocalTime.self, forKey: .fixedStart)
+            // Early development builds stored "HH:mm" here; those are dropped.
+            fixedStart: try? container.decodeIfPresent(Date.self, forKey: .fixedStart)
         )
     }
 

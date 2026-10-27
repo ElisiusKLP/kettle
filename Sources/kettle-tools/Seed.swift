@@ -151,8 +151,8 @@ struct DemoGenerator {
                 let now = Date()
                 task.status = .brewing
                 task.brewingSince = now
-                task.fixedStart = LocalTime(now, in: .autoupdatingCurrent)
-                plan.startTime = task.fixedStart
+                task.fixedStart = now
+                plan.startTime = LocalTime(now, in: .autoupdatingCurrent)
             }
             plan.tasks.append(task)
         }

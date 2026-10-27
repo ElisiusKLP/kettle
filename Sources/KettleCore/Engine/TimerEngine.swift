@@ -117,8 +117,8 @@ public struct TimerEngine {
     /// The first start on a day without a start time sets it to now.
     ///
     /// A pending task that starts moves up to be next in line (ahead of the other pending tasks)
-    /// and, on today's plan, its `fixedStart` becomes now, so derived times follow what really
-    /// happened. Resuming a paused task keeps its start, so the pause stretches its block.
+    /// and its `fixedStart` becomes now, so derived times follow what really happened. Resuming
+    /// a paused task keeps its start, so the pause stretches its block.
     @discardableResult
     public mutating func start(taskID: UUID? = nil) -> [Session] {
         let target: Int? = if let taskID {
@@ -143,7 +143,7 @@ public struct TimerEngine {
                 plan.tasks.insert(plan.tasks.remove(at: target), at: first)
                 target = first
             }
-            plan.tasks[target].fixedStart = isToday ? LocalTime(now, in: calendar) : nil
+            plan.tasks[target].fixedStart = now
         }
         plan.tasks[target].status = .brewing
         plan.tasks[target].brewingSince = now

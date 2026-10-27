@@ -19,8 +19,7 @@ struct TaskMenu: View {
             }
         }
         if task.status == .pending, let time = task.fixedStart {
-            let text = state.date.date(at: time, in: state.calendar).formatted(date: .omitted, time: .shortened)
-            Button("Unpin from \(text)") { state.unpin(task.id) }
+            Button("Unpin from \(time.formatted(date: .omitted, time: .shortened))") { state.unpin(task.id) }
         }
         Divider()
         Button("Delete", role: .destructive) { state.remove(task.id) }

@@ -166,7 +166,7 @@ extension TimerEngineTests {
         var engine = engine()
         clock.advance(by: 125) // 09:02:05
         engine.start()
-        #expect(engine.activeTask?.fixedStart == LocalTime("09:02"))
+        #expect(engine.activeTask?.fixedStart == nine + 125)
     }
 
     @Test func pausingPushesTheEndOfTheBlockAndEverythingAfter() {
@@ -179,7 +179,7 @@ extension TimerEngineTests {
         #expect(offsets(engine) == [[0, 75], [75, 135]])
         engine.start()
         #expect(engine.remainingSeconds(at: clock.now) == minutes(35))
-        #expect(engine.activeTask?.fixedStart == LocalTime("09:00"))
+        #expect(engine.activeTask?.fixedStart == nine)
         clock.advance(by: minutes(35))
         #expect(offsets(engine) == [[0, 75], [75, 135]])
     }
@@ -187,11 +187,11 @@ extension TimerEngineTests {
     @Test func startingAPinnedTaskEarlyMovesItToNow() {
         var engine = engine()
         engine.editPlan { plan in
-            plan.tasks[2].fixedStart = LocalTime("14:00")
+            plan.tasks[2].fixedStart = nine + minutes(5 * 60)
         }
         engine.start(taskID: engine.plan.tasks[2].id)
         #expect(engine.plan.tasks.map(\.title) == ["Emails", "Write", "Gym"])
-        #expect(engine.activeTask?.fixedStart == LocalTime("09:00"))
+        #expect(engine.activeTask?.fixedStart == nine)
         #expect(offsets(engine) == [[0, 20], [20, 65], [65, 125]])
     }
 

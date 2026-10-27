@@ -26,7 +26,7 @@ public enum PlanEngine {
             return now
         }
         guard let earliest = plan.tasks.compactMap(\.fixedStart).min() else { return nil }
-        return plan.date.date(at: min(earliest, defaultDayStart), in: calendar)
+        return min(earliest, plan.date.date(at: defaultDayStart, in: calendar))
     }
 
     /// Lays the blocks out back to back from `anchor`. A block with a fixed start starts no
@@ -51,7 +51,7 @@ public enum PlanEngine {
             let planned = TimeInterval(task.totalMinutes * 60)
             var start = cursor
             if let fixedStart = task.fixedStart {
-                start = max(start, plan.date.date(at: fixedStart, in: calendar))
+                start = max(start, fixedStart)
             }
             let end: Date
             switch task.status {
