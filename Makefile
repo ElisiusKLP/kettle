@@ -69,7 +69,7 @@ memcheck:
 	@scripts/memcheck.sh
 
 profile:
-	@echo "make profile: lands in build step 14"; exit 1
+	@scripts/profile.sh
 
 release:
 	scripts/bundle.sh release prod

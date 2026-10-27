@@ -380,3 +380,13 @@ Our own tick allocates nothing and is negligible; the cost is AppKit rendering a
 
 ### `make seed`
 **Chose:** no changes in this step; it was built in step 8 for memcheck.
+
+## Step 14: Re-measure
+
+### `make profile`
+**Chose:** `scripts/profile.sh` builds the release Kettle Dev, seeds throwaway data with a task brewing, and records `xctrace --template Allocations` for `PROFILE_SECONDS` (default 60) into `build/traces/`. Without full Xcode it exits with instructions.
+**Why:** Instruments only ships with Xcode. The trace window is the time to open and close the popover and Stats so their allocations can be checked.
+
+### Measurements after steps 9–13
+**Measured:** release idle footprint 11.9 MB with a task brewing (11 MB at step 7), so the popover, Settings and Stats code costs nothing while closed. `make test-release`: still 0 allocations per tick, and a year of stats aggregates in a few ms.
+**Not measured here:** the full `make memcheck` (5 minutes; it kept getting cut off in the agent session) and the popover-open and Stats-open budgets (50 / 70 MB, and back within 3 MB of baseline 10 s after closing), which need someone to click. These are on the pre-release checklist.
