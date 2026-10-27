@@ -155,7 +155,8 @@ struct CalendarDayView: View {
     }
 
     private func dragGesture(_ task: PlanTask, _ block: ScheduledBlock) -> some Gesture {
-        DragGesture(minimumDistance: 4)
+        // Global coordinates: the block moves with the drag, so its own would shift under it.
+        DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onChanged { value in
                 drag = (task.id, value.translation.height)
             }
