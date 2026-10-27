@@ -67,13 +67,21 @@ public struct CalendarEdit {
         setLength(taskID, to: task.totalMinutes + delta, in: &plan)
     }
 
-    /// A pending block's top edge: it starts at `start` (see `move`) and keeps its end.
+    /// A pending block's top edge: it starts at `start` and keeps its end. It stays in its
+    /// place in the day, so it can't start before the block above it ends (or before now).
     public func resize(_ taskID: UUID, start: Date, in plan: inout DayPlan) {
-        guard plan.tasks.contains(where: { $0.id == taskID && $0.status == .pending }),
+        guard let index = plan.tasks.firstIndex(where: { $0.id == taskID && $0.status == .pending }),
               let block = block(taskID)
         else { return }
-        let start = min(start, block.end - TimeInterval(Self.minimumMinutes * 60))
-        move(taskID, to: start, in: &plan)
+        var start = min(start, block.end - TimeInterval(Self.minimumMinutes * 60))
+        if let above = plan.tasks[..<index].compactMap({ self.block($0.id)?.end }).max() {
+            start = max(start, above)
+        }
+        if let now {
+            start = max(start, now)
+        }
+        freeze(&plan)
+        plan.tasks[index].fixedStart = start
         setLength(taskID, to: Int((block.end.timeIntervalSince(start) / 60).rounded()), in: &plan)
     }
 

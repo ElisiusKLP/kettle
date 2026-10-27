@@ -29,7 +29,12 @@ struct CalendarDayView: View {
     static let maximumMinutes = 36 * 60
 
     /// Height of the strip at the top and bottom of a block that resizes it.
-    static let edgeHeight: CGFloat = 5
+    static let edgeHeight: CGFloat = 6
+    /// The calendar's own coordinate space. Drags are measured in it: it doesn't move while a
+    /// block does, and block frames are known in it.
+    static let space = "calendar"
+    /// A press that moves less than this is a click (or double-click), not a drag.
+    static let clickDistance: CGFloat = 3
 
     /// A drag in progress.
     private struct Drag {
@@ -81,6 +86,7 @@ struct CalendarDayView: View {
                         nowLine
                     }
                 }
+                .coordinateSpace(.named(Self.space))
                 .frame(height: y(minutes: length) + Self.topInset, alignment: .top)
                 .padding(.trailing, 8)
             }
@@ -142,12 +148,12 @@ struct CalendarDayView: View {
         .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
         .overlay(alignment: .top) {
             if resizable, task.status == .pending {
-                edge(task, .top)
+                edge()
             }
         }
         .overlay(alignment: .bottom) {
             if resizable, CalendarEdit.canResize(task) {
-                edge(task, .bottom)
+                edge()
             }
         }
         .padding(.leading, Self.gutterWidth + 2)
@@ -160,16 +166,12 @@ struct CalendarDayView: View {
                 hovered = nil
             }
         }
-        .gesture(dragGesture(task.id, .move), including: editable ? .all : .subviews)
-        .simultaneousGesture(TapGesture(count: 2).onEnded {
-            if editable {
-                state.editingTaskID = task.id
-            }
-        })
+        .gesture(blockGesture(task))
     }
 
-    /// The strip along a block's top or bottom edge that resizes it, with the resize cursor.
-    private func edge(_ task: PlanTask, _ kind: DragKind) -> some View {
+    /// The strip along a block's top or bottom edge: only shows the resize cursor. The block's
+    /// one gesture decides what a drag does from where it starts.
+    private func edge() -> some View {
         Color.clear
             .frame(height: Self.edgeHeight)
             .contentShape(Rectangle())
@@ -180,21 +182,52 @@ struct CalendarDayView: View {
                     NSCursor.pop()
                 }
             }
-            .gesture(dragGesture(task.id, kind))
     }
 
-    private func dragGesture(_ taskID: UUID, _ kind: DragKind) -> some Gesture {
-        // Global coordinates: the block moves with the drag, so its own would shift under it.
-        DragGesture(minimumDistance: 3, coordinateSpace: .global)
+    /// One gesture per block, so moving and resizing can never both happen. Where the press
+    /// starts decides the kind: the top or bottom strip resizes, anywhere else moves. A press
+    /// that barely moves is a click, and a double-click opens the block editor.
+    private func blockGesture(_ task: PlanTask) -> some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.space))
             .updating($drag) { value, drag, _ in
-                drag = Drag(taskID: taskID, kind: kind, translation: value.translation.height)
+                guard drag != nil || abs(value.translation.height) >= Self.clickDistance,
+                      let kind = dragKind(task, at: value.startLocation.y)
+                else { return }
+                drag = Drag(taskID: task.id, kind: kind, translation: value.translation.height)
             }
             .onEnded { value in
-                let finished = Drag(taskID: taskID, kind: kind, translation: value.translation.height)
-                if let change = change(for: finished, blocks: state.calendarBlocks(now: now)) {
-                    state.rearrange(change)
+                guard abs(value.translation.height) >= Self.clickDistance else {
+                    if (NSApp.currentEvent?.clickCount ?? 0) >= 2, CalendarEdit.canMove(task) {
+                        state.editingTaskID = task.id
+                    }
+                    return
                 }
+                let blocks = state.calendarBlocks(now: now)
+                guard let kind = dragKind(task, at: value.startLocation.y),
+                      let change = change(
+                          for: Drag(taskID: task.id, kind: kind, translation: value.translation.height),
+                          blocks: blocks
+                      )
+                else { return }
+                state.rearrange(change)
             }
+    }
+
+    /// What a press at `y` (in the calendar's space) on the task's block does, judged against
+    /// the layout before any drag; nil for a locked block.
+    private func dragKind(_ task: PlanTask, at y: CGFloat) -> DragKind? {
+        guard CalendarEdit.canMove(task), let frame = layout(state.calendarBlocks(now: now))[task.id] else {
+            return nil
+        }
+        if frame.height >= Self.minimumResizableHeight {
+            if task.status == .pending, y < frame.top + Self.edgeHeight {
+                return .top
+            }
+            if CalendarEdit.canResize(task), y > frame.top + frame.height - Self.edgeHeight {
+                return .bottom
+            }
+        }
+        return .move
     }
 
     /// The shown plan and its blocks, or while dragging, both as they'd be after the drop.

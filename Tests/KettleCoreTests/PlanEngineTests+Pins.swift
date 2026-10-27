@@ -156,6 +156,10 @@ extension PlanEngineTests {
         // Back up to 09:40: longer again.
         edit(plan).resize(id, start: time("09:40"), in: &plan)
         #expect(offsets(schedule(plan)) == [[0, 30], [40, 60]])
+        // Dragged up into A, it stops where A ends and doesn't change places with it.
+        edit(plan).resize(id, start: time("09:10"), in: &plan)
+        #expect(plan.tasks.map(\.title) == ["A", "B"])
+        #expect(offsets(schedule(plan)) == [[0, 30], [30, 60]])
         // Dragged past its end, it keeps five minutes.
         edit(plan).resize(id, start: time("11:00"), in: &plan)
         #expect(offsets(schedule(plan)) == [[0, 30], [55, 60]])
