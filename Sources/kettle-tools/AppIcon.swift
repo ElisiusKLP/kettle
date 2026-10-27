@@ -3,8 +3,8 @@ import KettleCore
 import KettleIcon
 
 /// The full-colour app icon (SPEC section 6.5): the menubar kettle's paths on a light blue rounded
-/// square, with a brushed-steel kettle and black steam. Renders every iconset size from the vector
-/// paths and builds `Resources/AppIcon.icns` with `iconutil`.
+/// square, with a brushed-steel kettle and steam that fades from the outline colour as it rises.
+/// Renders every iconset size from the vector paths and builds `Resources/AppIcon.icns` with `iconutil`.
 enum AppIcon {
     static let lightBlue = CGColor(srgbRed: 0.85, green: 0.92, blue: 0.98, alpha: 1)
     static let lightBlueEdge = CGColor(srgbRed: 0.70, green: 0.81, blue: 0.91, alpha: 1)
@@ -20,7 +20,15 @@ enum AppIcon {
         ] as CFArray,
         locations: [0, 0.32, 0.62, 1]
     )!
-    static let steam = CGColor(srgbRed: 0.66, green: 0.68, blue: 0.71, alpha: 1)
+    /// Bottom to top: the outline's dark steel, fading to a pale grey.
+    static let steamGradient = CGGradient(
+        colorsSpace: CGColorSpace(name: CGColorSpace.sRGB),
+        colors: [
+            steelOutline,
+            CGColor(srgbRed: 0.76, green: 0.80, blue: 0.85, alpha: 1),
+        ] as CFArray,
+        locations: [0, 1]
+    )!
 
     static func build(output: URL, previewPNG: URL?) throws {
         let iconset = FileManager.default.temporaryDirectory
@@ -87,7 +95,7 @@ enum AppIcon {
         context.saveGState()
         context.translateBy(x: tile.midX - 9.6 * scale, y: tile.midY - 9.2 * scale)
         context.scaleBy(x: scale, y: scale)
-        // Fill the pot with the steel gradient, then draw the outline and steam on top.
+        // Fill the pot with the steel gradient and the steam with its fade, then draw the outline.
         let body = KettleDrawing.bodyPath()
         context.saveGState()
         context.addPath(body)
@@ -100,7 +108,19 @@ enum AppIcon {
             options: []
         )
         context.restoreGState()
-        KettleDrawing.draw(.brewing(.five), in: context, bodyColor: steelOutline, steamColor: steam)
+        let steam = KettleDrawing.fullSteamOutline()
+        context.saveGState()
+        context.addPath(steam)
+        context.clip()
+        let steamBounds = steam.boundingBox
+        context.drawLinearGradient(
+            steamGradient,
+            start: CGPoint(x: steamBounds.midX, y: steamBounds.minY),
+            end: CGPoint(x: steamBounds.midX, y: steamBounds.maxY),
+            options: []
+        )
+        context.restoreGState()
+        KettleDrawing.draw(.brewing(.five), in: context, bodyColor: steelOutline, steamColor: .clear)
         context.restoreGState()
     }
 }

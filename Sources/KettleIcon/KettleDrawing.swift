@@ -176,6 +176,20 @@ public enum KettleDrawing {
         return path
     }
 
+    /// The full-steam wisps as one filled outline, so the app icon can paint them with a gradient.
+    public static func fullSteamOutline() -> CGPath {
+        let path = CGMutablePath()
+        for wisp in fullSteam {
+            path.addPath(wispPath(wisp).copy(
+                strokingWithWidth: steamWidth,
+                lineCap: .round,
+                lineJoin: .round,
+                miterLimit: 10
+            ))
+        }
+        return path
+    }
+
     static func drawSteam(_ wisps: [Wisp], in context: CGContext, color: CGColor) {
         context.setLineWidth(steamWidth)
         for wisp in wisps {
