@@ -142,6 +142,7 @@ struct AppSettingsTests {
         let settings = AppSettings()
         #expect(settings.extendMinutes == 10)
         #expect(settings.secondaryExtendMinutes == 5)
+        #expect(settings.resizeStepMinutes == 5)
         #expect(!settings.autoStartNext)
         #expect(settings.menubarFormat == .iconAndTime)
         #expect(settings.timerPrecision == .smart)
@@ -157,6 +158,11 @@ struct AppSettingsTests {
         var expected = AppSettings()
         expected.extendMinutes = 15
         #expect(settings == expected)
+    }
+
+    @Test func resizeStepIsAtLeastOneMinute() throws {
+        let settings = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"resizeStepMinutes":0}"#.utf8))
+        #expect(settings.resizeStepMinutes == 1)
     }
 
     @Test func weekdayUsesCalendarNumbering() {

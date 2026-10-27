@@ -403,3 +403,17 @@ Our own tick allocates nothing and is negligible; the cost is AppKit rendering a
 ### The popover is sized before it opens
 **Chose:** the popover's `contentSize` is set to `PopoverView.size` (360 × 460) before `show`, and the hosting controller's `sizingOptions` are empty.
 **Why:** when SwiftUI only reported its size after the popover opened, AppKit positioned it for a near-empty popover, which then grew off the screen edge (reported at the final checkpoint).
+
+## After the final checkpoint: maintainer feedback
+
+### Popover controls read the observed plan
+**Chose:** the popover's Start/Pause/Resume title and the enabled state of Done and Keep brewing come from `PopoverState.plan` (the observed copy), not from `KettleModel`.
+**Why:** `KettleModel` isn't observable, so the footer never redrew after Pause and kept saying "Pause".
+
+### An Edit menu for key equivalents
+**Chose:** the app installs a main menu with just an Edit menu (Undo, Redo, Cut, Copy, Paste, Select All). As an accessory app it's never shown.
+**Why:** AppKit routes ⌘V and friends through the main menu, so without it paste didn't work in quick add or Settings.
+
+### Duration step is a setting
+**Chose:** `AppSettings.resizeStepMinutes` (default 5, at least 1; 1–60 in Settings) replaces the fixed `PlanEngine.resizeStep`.
+**Why:** requested by the maintainer. Older `settings.json` files without the key get the default (settings decode leniently), so no migration is needed.

@@ -40,6 +40,8 @@ public struct AppSettings: StoredDocument, Hashable {
     /// The "Keep brewing" amount.
     public var extendMinutes = 10
     public var secondaryExtendMinutes = 5
+    /// Minutes added or removed by a task's duration stepper.
+    public var resizeStepMinutes = 5
     public var autoStartNext = false
     public var menubarFormat = MenubarFormat.iconAndTime
     public var timerPrecision = TimerPrecision.smart
@@ -51,7 +53,7 @@ public struct AppSettings: StoredDocument, Hashable {
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case extendMinutes, secondaryExtendMinutes, autoStartNext, menubarFormat, timerPrecision
+        case extendMinutes, secondaryExtendMinutes, resizeStepMinutes, autoStartNext, menubarFormat, timerPrecision
         case whistleSound, notifyOnFinish, launchAtLogin, weekStartsOn
     }
 
@@ -63,6 +65,7 @@ public struct AppSettings: StoredDocument, Hashable {
         let defaults = AppSettings()
         extendMinutes = value(.extendMinutes, default: defaults.extendMinutes)
         secondaryExtendMinutes = value(.secondaryExtendMinutes, default: defaults.secondaryExtendMinutes)
+        resizeStepMinutes = max(1, value(.resizeStepMinutes, default: defaults.resizeStepMinutes))
         autoStartNext = value(.autoStartNext, default: defaults.autoStartNext)
         menubarFormat = value(.menubarFormat, default: defaults.menubarFormat)
         timerPrecision = value(.timerPrecision, default: defaults.timerPrecision)

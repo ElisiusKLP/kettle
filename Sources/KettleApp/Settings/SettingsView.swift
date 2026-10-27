@@ -30,6 +30,11 @@ private struct GeneralSettings: View {
                 value: $state.settings.secondaryExtendMinutes,
                 in: 1 ... 120
             )
+            Stepper(
+                "Duration buttons change a task by \(state.settings.resizeStepMinutes) min",
+                value: $state.settings.resizeStepMinutes,
+                in: 1 ... 60
+            )
             Toggle("Start the next task automatically after Done", isOn: $state.settings.autoStartNext)
             Picker("Menubar shows", selection: $state.settings.menubarFormat) {
                 Text("Kettle only").tag(MenubarFormat.iconOnly)

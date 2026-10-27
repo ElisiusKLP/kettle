@@ -38,16 +38,22 @@ final class PopoverState {
         model.today
     }
 
+    // These read the observed `plan` copy, not the model, so SwiftUI redraws when they change.
+
+    var activeTask: PlanTask? {
+        isTimerDay ? plan.tasks.first { $0.status == .brewing || $0.status == .paused } : nil
+    }
+
     var activeTaskID: UUID? {
-        isTimerDay ? model.engine.activeTask?.id : nil
+        activeTask?.id
     }
 
     var isBrewing: Bool {
-        isTimerDay && model.engine.isBrewing
+        activeTask?.status == .brewing
     }
 
     var hasStartableTask: Bool {
-        isTimerDay && (model.engine.activeTask != nil || plan.tasks.contains { $0.status == .pending })
+        isTimerDay && plan.tasks.contains { $0.status == .pending || $0.status == .paused }
     }
 
     // MARK: Days

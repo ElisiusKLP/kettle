@@ -31,9 +31,9 @@ struct TaskRow: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
             Stepper("Duration", onIncrement: {
-                state.adjust(task.id, by: PlanEngine.resizeStep)
+                state.adjust(task.id, by: state.settings.resizeStepMinutes)
             }, onDecrement: {
-                state.adjust(task.id, by: -PlanEngine.resizeStep)
+                state.adjust(task.id, by: -state.settings.resizeStepMinutes)
             })
             .labelsHidden()
             .accessibilityLabel("Duration of \(task.title), \(task.totalMinutes) minutes")

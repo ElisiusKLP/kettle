@@ -9,9 +9,6 @@ public struct ScheduledBlock: Equatable, Sendable {
 
 /// Pure operations on a day plan: derived times, editing, reordering and carry-over.
 public enum PlanEngine {
-    /// Minutes added or removed by one stepper click or scroll step.
-    public static let resizeStep = 5
-
     // MARK: Derived times
 
     /// When the plan's first block starts: its `startTime` on its day, otherwise now if the

@@ -202,7 +202,7 @@ struct PlanEngineTests {
     @Test func adjustStepsAndClamps() {
         var plan = plan(task("A", 10))
         let id = plan.tasks[0].id
-        PlanEngine.adjust(taskID: id, byMinutes: PlanEngine.resizeStep, in: &plan)
+        PlanEngine.adjust(taskID: id, byMinutes: AppSettings().resizeStepMinutes, in: &plan)
         #expect(plan.tasks[0].plannedMinutes == 15)
         PlanEngine.adjust(taskID: id, byMinutes: -100, in: &plan)
         #expect(plan.tasks[0].plannedMinutes == 1)

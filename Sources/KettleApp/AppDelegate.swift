@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_: Notification) {
+        MainMenu.install()
         let folder: URL
         do {
             folder = try DataLocation.resolve()
