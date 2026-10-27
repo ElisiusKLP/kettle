@@ -44,56 +44,47 @@ extension PlanEngineTests {
 
     // MARK: Drag and drop
 
-    @Test func pinningMovesTheTaskIntoTimeOrder() throws {
-        var plan = plan(task("A", 30), task("B", 30), task("C", 30))
-        let id = plan.tasks[0].id
-        try PlanEngine.pin(
-            taskID: id,
-            at: #require(LocalTime("10:15")),
-            in: &plan,
-            schedule: schedule(plan),
-            calendar: calendar
-        )
-        #expect(plan.tasks.map(\.title) == ["B", "C", "A"])
-        #expect(plan.tasks[2].fixedStart == LocalTime("10:15"))
-        #expect(offsets(schedule(plan)) == [[0, 30], [30, 60], [75, 105]])
-
-        try PlanEngine.pin(
-            taskID: id,
-            at: #require(LocalTime("09:45")),
-            in: &plan,
-            schedule: schedule(plan),
-            calendar: calendar
-        )
-        // B 09:00, C 09:30: A goes after both, at 09:45, and C keeps following B.
-        #expect(plan.tasks.map(\.title) == ["B", "C", "A"])
-        try PlanEngine.pin(
-            taskID: id,
-            at: #require(LocalTime("09:15")),
-            in: &plan,
-            schedule: schedule(plan),
-            calendar: calendar
-        )
-        #expect(plan.tasks.map(\.title) == ["B", "A", "C"])
-        #expect(offsets(schedule(plan)) == [[0, 30], [30, 60], [60, 90]])
-    }
-
     func time(_ string: String) throws -> LocalTime {
         try #require(LocalTime(string))
     }
 
-    @Test func droppingOnTheUpperHalfOfABlockPushesItDown() throws {
-        // A 09:00–09:30, B 09:30–10:30, C 10:30–11:00.
-        var plan = plan(task("A", 30), task("B", 60), task("C", 30))
-        let id = plan.tasks[2].id
-        try PlanEngine.pin(taskID: id, at: time("09:45"), in: &plan, schedule: schedule(plan), calendar: calendar)
-        #expect(plan.tasks.map(\.title) == ["A", "C", "B"])
-        #expect(offsets(schedule(plan)) == [[0, 30], [45, 75], [75, 135]])
+    /// A calendar edit against the plan as it's shown now.
+    func edit(_ plan: DayPlan, now: Date? = nil) -> CalendarEdit {
+        CalendarEdit(schedule: schedule(plan, now: now), now: now, calendar: calendar)
+    }
 
-        // On the lower half of B (now 10:15–11:15), C goes after it.
-        try PlanEngine.pin(taskID: id, at: time("11:00"), in: &plan, schedule: schedule(plan), calendar: calendar)
-        #expect(plan.tasks.map(\.title) == ["A", "B", "C"])
-        #expect(offsets(schedule(plan)) == [[0, 30], [30, 90], [120, 150]])
+    func pin(_ id: UUID, at string: String, in plan: inout DayPlan) throws {
+        try edit(plan).move(id, to: time(string), in: &plan)
+    }
+
+    @Test func droppingKeepsTheOtherBlocksWhereTheyAre() throws {
+        // A 09:00–09:30, B 09:30–10:00, C 10:00–10:30.
+        var plan = plan(task("A", 30), task("B", 30), task("C", 30))
+        let id = plan.tasks[0].id
+        // On the lower half of C: A starts when C ends, and B and C don't move up into the gap.
+        try pin(id, at: "10:15", in: &plan)
+        #expect(plan.tasks.map(\.title) == ["B", "C", "A"])
+        #expect(plan.tasks.map(\.fixedStart) == [LocalTime("09:30"), LocalTime("10:00"), LocalTime("10:15")])
+        #expect(offsets(schedule(plan)) == [[30, 60], [60, 90], [90, 120]])
+    }
+
+    @Test func droppingOnABlockPushesItAndEverythingItThenOverlapsDown() throws {
+        // A 09:00–09:30, B 09:30–10:30, C 10:30–11:00, D 12:00–12:30.
+        var plan = plan(task("A", 30), task("B", 60), task("C", 30), pinned("D", 30, at: "12:00"))
+        let id = plan.tasks[0].id
+        // On the upper half of B: A takes 09:45, B and C are pushed 45 minutes, D has room.
+        try pin(id, at: "09:45", in: &plan)
+        #expect(plan.tasks.map(\.title) == ["A", "B", "C", "D"])
+        #expect(offsets(schedule(plan)) == [[45, 75], [75, 135], [135, 165], [180, 210]])
+
+        // Dragged back up, A leaves a gap: B and C stay pushed.
+        try pin(id, at: "09:00", in: &plan)
+        #expect(offsets(schedule(plan)) == [[0, 30], [75, 135], [135, 165], [180, 210]])
+
+        // On the lower half of B (10:15–11:15), A starts when B ends and pushes C and D.
+        try pin(id, at: "11:00", in: &plan)
+        #expect(plan.tasks.map(\.title) == ["B", "A", "C", "D"])
+        #expect(offsets(schedule(plan)) == [[75, 135], [135, 165], [165, 195], [195, 225]])
     }
 
     // MARK: Resizing by the edges
@@ -101,21 +92,20 @@ extension PlanEngineTests {
     @Test func draggingTheBottomEdgeChangesTheDuration() {
         var plan = plan(task("A", 30), task("B", 30))
         let id = plan.tasks[0].id
-        PlanEngine.resize(taskID: id, end: nine + 50 * 60, in: &plan, schedule: schedule(plan), now: nil)
+        edit(plan).resize(id, end: nine + 50 * 60, in: &plan)
         #expect(plan.tasks[0].plannedMinutes == 50)
         #expect(offsets(schedule(plan)) == [[0, 50], [50, 80]])
-        // Never shorter than a minute.
-        PlanEngine.resize(taskID: id, end: nine - 3600, in: &plan, schedule: schedule(plan), now: nil)
+        // Shorter again (never below a minute): B stays where it was pushed.
+        edit(plan).resize(id, end: nine - 3600, in: &plan)
         #expect(plan.tasks[0].plannedMinutes == 1)
+        #expect(offsets(schedule(plan)) == [[0, 1], [50, 80]])
     }
 
     @Test func theActiveBlockCantBeShortenedIntoThePast() {
         // Brewing since 09:00 with 10 of 45 minutes done at 09:10.
         let now = nine + 10 * 60
         var plan = plan(task("A", 45, .brewing, since: nine))
-        PlanEngine.resize(
-            taskID: plan.tasks[0].id, end: nine, in: &plan, schedule: schedule(plan, now: now), now: now
-        )
+        edit(plan, now: now).resize(plan.tasks[0].id, end: nine, in: &plan)
         #expect(plan.tasks[0].totalMinutes == 11)
     }
 
@@ -123,47 +113,31 @@ extension PlanEngineTests {
         var plan = plan(task("A", 30), task("B", 30))
         let id = plan.tasks[1].id
         // B 09:30–10:00 now starts at 09:45.
-        try PlanEngine.resize(taskID: id, start: time("09:45"), in: &plan, schedule: schedule(plan), calendar: calendar)
+        try edit(plan).resize(id, start: time("09:45"), in: &plan)
         #expect(plan.tasks[1].fixedStart == LocalTime("09:45"))
         #expect(offsets(schedule(plan)) == [[0, 30], [45, 60]])
         // Back up to 09:40: longer again.
-        try PlanEngine.resize(taskID: id, start: time("09:40"), in: &plan, schedule: schedule(plan), calendar: calendar)
+        try edit(plan).resize(id, start: time("09:40"), in: &plan)
         #expect(offsets(schedule(plan)) == [[0, 30], [40, 60]])
         // Active and finished tasks keep their start.
         var active = self.plan(task("A", 30, .paused, brewed: 60))
         let before = active
-        try PlanEngine.resize(
-            taskID: active.tasks[0].id, start: time("08:00"), in: &active, schedule: schedule(active),
-            calendar: calendar
-        )
+        try edit(active).resize(active.tasks[0].id, start: time("08:00"), in: &active)
         #expect(active == before)
     }
 
-    @Test func pinningStaysAfterFinishedAndActiveTasks() throws {
+    @Test func movingStaysAfterFinishedAndActiveTasks() throws {
         var plan = plan(task("A", 30, .done, brewed: 1800), task("B", 30, .paused), task("C", 30))
-        let id = plan.tasks[2].id
-        try PlanEngine.pin(
-            taskID: id,
-            at: #require(LocalTime("08:00")),
-            in: &plan,
-            schedule: schedule(plan),
-            calendar: calendar
-        )
+        try pin(plan.tasks[2].id, at: "08:00", in: &plan)
         #expect(plan.tasks.map(\.title) == ["A", "B", "C"])
         #expect(plan.tasks[2].fixedStart == LocalTime("08:00"))
     }
 
-    @Test func onlyPendingTasksCanBePinned() throws {
+    @Test func onlyPendingTasksCanBeMoved() throws {
         var plan = plan(task("A", 30, .done, brewed: 1800), task("B", 30, .paused))
         let before = plan
         for task in before.tasks {
-            try PlanEngine.pin(
-                taskID: task.id,
-                at: #require(LocalTime("12:00")),
-                in: &plan,
-                schedule: [],
-                calendar: calendar
-            )
+            try pin(task.id, at: "12:00", in: &plan)
         }
         #expect(plan == before)
     }

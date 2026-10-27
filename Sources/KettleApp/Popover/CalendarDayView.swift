@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The day as a compact calendar, like Calendar's day view: time marks down the left, each block
 /// at its derived time, and a line at the current time. Pending blocks can be dragged to a new
-/// time, which pins them there (`PlanEngine.pin`). Dragging a block's bottom edge changes its
+/// time, which pins them there (`CalendarEdit`). Dragging a block's bottom edge changes its
 /// duration, and a pending block's top edge its start. While dragging, the whole day is laid
 /// out as if dropped there, so the other blocks make room instead of being covered.
 struct CalendarDayView: View {
@@ -210,21 +210,20 @@ struct CalendarDayView: View {
     private func change(for drag: Drag, blocks: [ScheduledBlock]) -> ((inout DayPlan) -> Void)? {
         guard let block = blocks.first(where: { $0.taskID == drag.taskID }) else { return nil }
         let moved = Double(drag.translation / pointsPerMinute)
-        let calendar = state.calendar
+        let edit = CalendarEdit(schedule: blocks, now: state.date == state.today ? now : nil, calendar: state.calendar)
         let taskID = drag.taskID
         switch drag.kind {
         case .move:
             let time = localTime(snapped(offset(block.start) + moved))
-            return { PlanEngine.pin(taskID: taskID, at: time, in: &$0, schedule: blocks, calendar: calendar) }
+            return { edit.move(taskID, to: time, in: &$0) }
         case .top:
             // At least one snap step before the end.
             let latest = Int(offset(block.end)) - Self.snapMinutes
             let time = localTime(min(snapped(offset(block.start) + moved), latest))
-            return { PlanEngine.resize(taskID: taskID, start: time, in: &$0, schedule: blocks, calendar: calendar) }
+            return { edit.resize(taskID, start: time, in: &$0) }
         case .bottom:
             let end = dayStart + TimeInterval(snapped(offset(block.end) + moved) * 60)
-            let now = state.date == state.today ? now : nil
-            return { PlanEngine.resize(taskID: taskID, end: end, in: &$0, schedule: blocks, now: now) }
+            return { edit.resize(taskID, end: end, in: &$0) }
         }
     }
 
