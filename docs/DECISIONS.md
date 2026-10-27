@@ -335,3 +335,25 @@ Our own tick allocates nothing and is negligible; the cost is AppKit rendering a
 ### Window lifetime
 **Chose:** the Settings window is created on demand. `isReleasedWhenClosed = false`, and the controller drops its only reference (and the hosting controller) right after `windowWillClose`.
 **Why:** under ARC this is the reliable way to free the window and its SwiftUI views on close (§8 rule 2). Letting AppKit release the window while Swift still holds a reference risks a double release.
+
+## Step 11: Notifications and the whistle
+
+### The notification is scheduled ahead
+**Chose:** while a task brews, one pending local notification (`io.github.kettle.whistle`) is scheduled with a calendar trigger at the moment the block runs out. It's rescheduled only after actions, settings changes and wake-ups (never per tick), and removed when nothing is brewing. It has actions Done, "Keep brewing +N" and "+M" (titles from Settings). An action only applies if the notification's task is still the active one.
+**Why:** a pre-scheduled notification fires on time even while Kettle isn't ticking (screens off, asleep), and a calendar trigger follows wall-clock time across sleep. Checking the task ID stops a stale notification acting on a different task.
+
+### No notifications after the fact
+**Chose:** if Kettle starts or wakes when the block is already overdue, it shows the whistling icon but doesn't post a notification or wiggle.
+**Why:** a notification about something that ended an hour ago is noise. The menubar already shows `+…`.
+
+### Permission is asked for lazily
+**Chose:** Kettle asks for notification permission the first time it has something to schedule (the first Start with "Notify when time's up" on), not at launch.
+**Why:** the question then appears in context, and users who never brew are never asked.
+
+### Sound
+**Chose:** the notification carries the default notification sound when "Whistle sound" is on. With notifications off but the whistle sound on, Kettle plays the system "Glass" sound itself at zero.
+**Why:** this avoids shipping a sound file (no bundled resources) and never plays two sounds at once. A custom kettle-whistle sound could come later.
+
+### Wiggle
+**Chose:** when the block first runs out (`MenubarTicker.Update.startedWhistling`), the icon shows five pre-rotated whistling frames 120 ms apart (about 0.6 s), then settles. The frames are rendered the first time a wiggle plays, and nothing plays with Reduce Motion on.
+**Why:** this is the single allowed animation (§6.4). It costs a handful of image swaps once per block.

@@ -11,6 +11,9 @@ public struct MenubarTicker {
         public var icon: IconState?
         /// The new title, or nil if unchanged.
         public var title: String?
+        /// True on the tick where the brewing block first runs out: time to wiggle and whistle.
+        /// Never true for a block that was already overdue when Kettle started showing it.
+        public var startedWhistling = false
     }
 
     public private(set) var icon: IconState?
@@ -23,6 +26,9 @@ public struct MenubarTicker {
         let newTitle = Self.title(engine: engine, now: now, settings: settings)
         var update = Update()
         if newIcon != icon {
+            if case .brewing = icon, newIcon == .whistling {
+                update.startedWhistling = true
+            }
             icon = newIcon
             update.icon = newIcon
         }
