@@ -515,5 +515,6 @@ Reordering in the list, carrying a task over, and a task going back to pending (
 
 ### The resize cursor follows the pointer
 **Found:** the resize cursor came from invisible strips that pushed it on entering and popped it on leaving. AppKit resets the cursor as views redraw and move, and a missed exit unbalances push and pop, so the arrows were sometimes missing over a zone that did resize.
-**Chose:** each block sets the cursor with `onContinuousHover` on every pointer move, from the same `dragKind` test the gesture uses: up-down arrows over a resize zone, the arrow elsewhere. A resize drag keeps the arrows until it ends. The strips are gone; only the hover handles remain as a visual hint.
-**Why:** reported by the maintainer.
+**Chose (first try):** each block set the cursor with `onContinuousHover` on every pointer move, from the same `dragKind` test the gesture uses. That still only flashed: the scroll view and SwiftUI's redraws (the countdown redraws every second) reset it right after.
+**Chose:** the resize zones are small AppKit views (`ResizeCursorArea`) that register a cursor rect with the window, which AppKit keeps through redraws and scrolling. They return nil from `hitTest`, so every press still reaches the block's one gesture, and they use the same `edgeZones` sizes as the gesture's test. They're removed during a drag, and a resize drag sets the arrows itself on every update.
+**Why:** reported by the maintainer, twice.

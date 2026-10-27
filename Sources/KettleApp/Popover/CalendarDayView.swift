@@ -148,25 +148,25 @@ struct CalendarDayView: View {
             nudge: { direction in state.nudge(task.id, by: direction * step, now: now) }
         )
         .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
+        // The resize cursor over the same zones the gesture tests (`edgeZones`).
+        .overlay(alignment: .top) {
+            if edges.top > 0, drag == nil {
+                ResizeCursorArea().frame(height: edges.top)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if edges.bottom > 0, drag == nil {
+                ResizeCursorArea().frame(height: edges.bottom)
+            }
+        }
         .padding(.leading, Self.gutterWidth + 2)
         .offset(y: top)
         .zIndex(dragged != nil ? 1 : 0)
-        .onContinuousHover(coordinateSpace: .named(Self.space)) { phase in
-            switch phase {
-            case let .active(location):
+        .onHover { inside in
+            if inside {
                 hovered = task.id
-                // On every move, from the same test the gesture uses, so the cursor always
-                // shows what a press there would do. AppKit resets cursors freely, so setting
-                // it once on entering a zone isn't enough.
-                guard drag == nil else { return }
-                Self.cursor(for: dragKind(task, at: location.y)).set()
-            case .ended:
-                if hovered == task.id {
-                    hovered = nil
-                }
-                if drag == nil {
-                    NSCursor.arrow.set()
-                }
+            } else if hovered == task.id {
+                hovered = nil
             }
         }
         .gesture(blockGesture(task))
