@@ -177,6 +177,37 @@ extension PlanEngineTests {
         #expect(plan.tasks[2].fixedStart == at("08:00"))
     }
 
+    @Test func draggingAPausedBlockUpNeverStretchesIt() {
+        // Done 09:00–10:00; paused, started 10:30 with 10 of 45 minutes brewed; it's 11:00.
+        let now = nine + 120 * 60
+        var plan = plan(task("Done", 60, .done, brewed: 3600), task("A", 45, .paused, brewed: 600), task("B", 30))
+        plan.tasks[1].fixedStart = at("10:30")
+        let before = schedule(plan, now: now)
+        #expect(offsets(before) == [[0, 60], [90, 155], [155, 185]])
+        for minutes in stride(from: 0, through: 180, by: 5) {
+            var moved = plan
+            edit(plan, now: now).move(plan.tasks[1].id, to: at("10:30") - TimeInterval(minutes * 60), in: &moved)
+            // It resumes at the earliest now, with its 35 minutes left.
+            #expect(offsets(schedule(moved, now: now))[1] == [120, 155])
+        }
+    }
+
+    @Test func theEditorTreatsAPausedBlocksLengthAsTimeLeft() {
+        let now = nine + 120 * 60
+        var plan = plan(task("A", 45, .paused, brewed: 600))
+        plan.tasks[0].fixedStart = at("10:30")
+        let block = schedule(plan, now: now)[0]
+        let start = CalendarEdit.editorStart(plan.tasks[0], block, now: now)
+        #expect(start == now)
+        // Saved unchanged: still 35 minutes left.
+        edit(plan, now: now).set(plan.tasks[0].id, start: start, minutes: 35, in: &plan)
+        #expect(plan.tasks[0].totalMinutes == 45)
+        // 20 minutes left, resuming at 11:30.
+        edit(plan, now: now).set(plan.tasks[0].id, start: at("11:30"), minutes: 20, in: &plan)
+        #expect(plan.tasks[0].totalMinutes == 30)
+        #expect(offsets(schedule(plan, now: now)) == [[150, 170]])
+    }
+
     @Test func finishedTasksCantBeMoved() {
         var plan = plan(task("A", 30, .done, brewed: 1800), task("B", 30, .skipped))
         let before = plan

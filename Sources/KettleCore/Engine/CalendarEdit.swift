@@ -45,10 +45,17 @@ public struct CalendarEdit {
     /// Moves the block to start at `start`. It goes just before the first pending block it
     /// would overlap or that ends later, which is pushed down. Finished and brewing blocks
     /// can't be pushed, so if it overlaps one, it starts when that one ends.
+    ///
+    /// For a paused block, `start` is when it resumes, so it's never before now, and the block
+    /// then lasts exactly the time it has left.
     public func move(_ taskID: UUID, to start: Date, in plan: inout DayPlan) {
         guard let index = plan.tasks.firstIndex(where: { $0.id == taskID && Self.canMove($0) }) else { return }
         freeze(&plan)
         var task = plan.tasks.remove(at: index)
+        var start = start
+        if task.status == .paused, let now {
+            start = max(start, now)
+        }
         task.fixedStart = start
         let later = plan.tasks.firstIndex { other in
             other.status == .pending && (block(other.id).map { start < $0.end } ?? true)
@@ -85,17 +92,29 @@ public struct CalendarEdit {
         setLength(taskID, to: Int((block.end.timeIntervalSince(start) / 60).rounded()), in: &plan)
     }
 
-    /// The editor: the block starts at `start` and lasts `minutes` (including extensions).
+    /// The editor: the block starts at `start` and lasts `minutes` (including extensions). For
+    /// a paused task, `start` is when it resumes and `minutes` the time it has left.
     public func set(_ taskID: UUID, start: Date, minutes: Int, in plan: inout DayPlan) {
-        guard let block = block(taskID), plan.tasks.contains(where: { $0.id == taskID && Self.canMove($0) }) else {
-            return
-        }
-        if abs(start.timeIntervalSince(block.start)) >= 60 {
+        guard let task = plan.tasks.first(where: { $0.id == taskID && Self.canMove($0) }),
+              let block = block(taskID)
+        else { return }
+        if abs(start.timeIntervalSince(Self.editorStart(task, block, now: now))) >= 60 {
             move(taskID, to: start, in: &plan)
         } else {
             freeze(&plan)
         }
-        setLength(taskID, to: minutes, in: &plan)
+        if task.status == .paused {
+            setLength(taskID, to: (task.brewedSeconds + minutes * 60 + 59) / 60, in: &plan)
+        } else {
+            setLength(taskID, to: minutes, in: &plan)
+        }
+    }
+
+    /// Where the editor's From starts: the block's start, or for a paused block, when it would
+    /// resume (now, if its block started earlier).
+    public static func editorStart(_ task: PlanTask, _ block: ScheduledBlock, now: Date?) -> Date {
+        guard task.status == .paused, let now else { return block.start }
+        return max(block.start, now)
     }
 
     /// Sets the block's length, keeping its extensions, at least `minimumMinutes` and, for a

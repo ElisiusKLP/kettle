@@ -18,9 +18,10 @@ struct BlockEditor: View {
         self.task = task
         self.state = state
         self.now = now
-        _start = State(initialValue: block.start)
+        let start = CalendarEdit.editorStart(task, block, now: state.date == state.today ? now : nil)
+        _start = State(initialValue: start)
         _end = State(initialValue: block.end)
-        _length = State(initialValue: Self.text(minutes: Self.minutes(from: block.start, to: block.end)))
+        _length = State(initialValue: Self.text(minutes: Self.minutes(from: start, to: block.end)))
     }
 
     private var minutes: Int {
@@ -36,7 +37,7 @@ struct BlockEditor: View {
             Text(task.title).font(.headline).lineLimit(1)
             Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 6) {
                 GridRow {
-                    Text("Length").foregroundStyle(.secondary)
+                    Text(task.status == .paused ? "Time left" : "Length").foregroundStyle(.secondary)
                     TextField("45m", text: $length)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
@@ -57,7 +58,7 @@ struct BlockEditor: View {
             }
             .datePickerStyle(.field)
             if task.status == .paused {
-                Text("Paused: it keeps at least a minute more than it has brewed.")
+                Text("Paused: From is when it resumes.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
