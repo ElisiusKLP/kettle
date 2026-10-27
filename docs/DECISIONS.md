@@ -390,3 +390,12 @@ Our own tick allocates nothing and is negligible; the cost is AppKit rendering a
 ### Measurements after steps 9–13
 **Measured:** release idle footprint 11.9 MB with a task brewing (11 MB at step 7), so the popover, Settings and Stats code costs nothing while closed. `make test-release`: still 0 allocations per tick, and a year of stats aggregates in a few ms.
 **Not measured here:** the full `make memcheck` (5 minutes; it kept getting cut off in the agent session) and the popover-open and Stats-open budgets (50 / 70 MB, and back within 3 MB of baseline 10 s after closing), which need someone to click. These are on the pre-release checklist.
+
+## Step 15: App icon and docs
+
+### App icon
+**Chose:** `kettle-tools appicon` draws the menubar kettle's own paths at full steam on a cream rounded square (macOS grid: an 824 px tile with a 185 px corner radius on a 1024 px canvas, with a soft drop shadow). The pot is filled copper with a darker copper outline, and the steam is white with a soft copper shadow. Every iconset size is rendered from the vector paths, then `iconutil` builds `Resources/AppIcon.icns`. A 1024 px preview goes to `build/icons/appicon.png`. `KettleDrawing.draw` gained an optional `bodyFill`, which the menubar icon doesn't use.
+**Why:** this follows §6.5. White steam on cream disappears without the shadow, and rendering each size from vectors keeps the small sizes crisp.
+
+### Docs
+**Chose:** PRIVACY.md now also covers the notification permission, Login Items, export/import files, delete-all and sandbox file access. Changes to README.md and DEVELOPMENT.md are proposed to the maintainer, not applied (CLAUDE.md).

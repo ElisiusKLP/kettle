@@ -6,7 +6,7 @@ usage: kettle-tools <command>
 
 commands:
   icons [path]  render every icon state into build/icons/preview.png (or path)
-  appicon       regenerate Resources/AppIcon.icns                      (build step 15)
+  appicon       regenerate Resources/AppIcon.icns (and build/icons/appicon.png to review)
   seed [--brewing]
                 fill the dev data folder (or KETTLE_DATA_DIR) with two weeks of demo
                 data; --brewing starts today's first task
@@ -24,7 +24,9 @@ do {
     case "seed":
         try Seed.run(arguments: Array(arguments.dropFirst()))
     case "appicon":
-        throw ToolError("kettle-tools \(arguments[0]): not implemented yet")
+        let output = URL(fileURLWithPath: "Resources/AppIcon.icns")
+        try AppIcon.build(output: output, previewPNG: URL(fileURLWithPath: "build/icons/appicon.png"))
+        print("Wrote \(output.path) and build/icons/appicon.png")
     default:
         print(usage)
         exit(arguments.isEmpty ? 0 : 64)
