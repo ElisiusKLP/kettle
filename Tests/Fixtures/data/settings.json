@@ -4,6 +4,7 @@
   "launchAtLogin" : false,
   "menubarFormat" : "iconAndTime",
   "notifyOnFinish" : true,
+  "overtime" : false,
   "resizeStepMinutes" : 5,
   "schemaVersion" : 1,
   "secondaryExtendMinutes" : 5,

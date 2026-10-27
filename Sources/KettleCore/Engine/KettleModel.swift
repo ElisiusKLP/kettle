@@ -46,9 +46,20 @@ public final class KettleModel {
         perform { $0.pause() }
     }
 
-    public func done() {
-        perform { $0.done() }
+    /// Finishes the active task, or marks the pending task `taskID` done.
+    public func done(taskID: UUID? = nil) {
+        perform { $0.done(taskID: taskID) }
         rollOverIfNeeded()
+    }
+
+    /// Finishes the brewing task if its time is up and overtime is off (see
+    /// `TimerEngine.finishIfTimeUp`). The app calls this on every tick and on wake.
+    @discardableResult
+    public func finishIfTimeUp() -> TimerEngine.TimeUp? {
+        let before = engine.plan
+        guard let timeUp = engine.finishIfTimeUp() else { return nil }
+        save(timeUp.sessions, since: before)
+        return timeUp
     }
 
     public func skip(taskID: UUID? = nil) {
@@ -59,13 +70,11 @@ public final class KettleModel {
         rollOverIfNeeded()
     }
 
-    /// Keep brewing by the main (`extendMinutes`) or secondary (`secondaryExtendMinutes`) amount.
-    public func keepBrewing(secondary: Bool = false) {
+    /// Keep brewing by the main (`extendMinutes`) or secondary (`secondaryExtendMinutes`) amount,
+    /// for `taskID` or the engine's `keepBrewingTarget`. A task that just finished brews again.
+    public func keepBrewing(secondary: Bool = false, taskID: UUID? = nil) {
         let minutes = secondary ? settings.secondaryExtendMinutes : settings.extendMinutes
-        perform { engine in
-            engine.keepBrewing(minutes: minutes)
-            return []
-        }
+        perform { $0.keepBrewing(minutes: minutes, taskID: taskID) }
     }
 
     // MARK: Planning
@@ -221,10 +230,16 @@ public final class KettleModel {
 
     // MARK: Private
 
-    /// Runs a timer action, then saves the plan and records closed sessions and stats.
+    /// Runs a timer action, then saves the plan and records closed sessions and stats. A block
+    /// whose time ran out is finished first, so the action sees the current state.
     private func perform(_ action: (inout TimerEngine) -> [Session]) {
         let before = engine.plan
-        let sessions = action(&engine)
+        let sessions = (engine.finishIfTimeUp()?.sessions ?? []) + action(&engine)
+        save(sessions, since: before)
+    }
+
+    /// Saves the plan if it changed since `before`, and records `sessions` and the stats.
+    private func save(_ sessions: [Session], since before: DayPlan) {
         guard engine.plan != before || !sessions.isEmpty else { return }
         do {
             for session in sessions {

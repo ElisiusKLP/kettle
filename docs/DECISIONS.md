@@ -417,3 +417,19 @@ Our own tick allocates nothing and is negligible; the cost is AppKit rendering a
 ### Duration step is a setting
 **Chose:** `AppSettings.resizeStepMinutes` (default 5, at least 1; 1–60 in Settings) replaces the fixed `PlanEngine.resizeStep`.
 **Why:** requested by the maintainer. Older `settings.json` files without the key get the default (settings decode leniently), so no migration is needed.
+
+### Time's up finishes the task; overtime is opt-in
+**Chose:** a new `AppSettings.overtime` (default false). Off, a brewing task is marked done as of the moment it ran out, so it counts exactly its planned time, and the menubar never shows `+00:42`. On, it keeps brewing into overtime until Done, as before. `TimerEngine.finishIfTimeUp()` applies it lazily: the app calls it on every tick (and so on wake and launch), and `KettleModel` also calls it before every action. Only when the finish is noticed within `liveFinishWindow` (60 s) of zero does the kettle wiggle and whistle, and does `autoStartNext` start the next task. Noticed later (asleep, quit), the task finishes quietly.
+**Why:** requested by the maintainer: a check mark at zero is the expected default. Applying it from timestamps keeps it correct across sleep. Auto-starting the next task hours after the fact would record work that never happened.
+
+### Keep brewing reopens the task that just finished
+**Chose:** `TimerEngine.lastFinishedID` (in memory only) remembers the last task finished by Done or by running out. When nothing is brewing or paused, Keep brewing applies to it: the task brews again where it left off, plus the extension (so a task that ran out gets `extendMinutes` from now). The whistle notification's Keep brewing can reopen it even if the next task has auto-started; that task goes back to pending.
+**Why:** with finishing as the default, "Keep brewing" in the notification and the right-click menu still needs to mean "not done yet". Not storing it keeps the file format unchanged; after a relaunch the menu simply doesn't offer it.
+
+### Right-click menus share `TimerControls`
+**Chose:** the menubar's right-click menu now starts with Start/Pause/Resume, Done, Keep brewing +N (naming the task when it would reopen a finished one) and Skip, above Settings, Stats and Quit. A task's right-click menu in the popover offers what applies to that task: Pause/Resume, Done, Keep brewing, Skip for the active task; Start, Done, Skip for a pending one; Keep brewing for the one that just finished; then Delete. `TimerControls` in KettleCore decides which apply, for the popover footer too. Done on a pending task marks it done without brewing it.
+**Why:** requested by the maintainer. One source for "what applies" keeps the footer, the menus and the menubar consistent, and makes it testable.
+
+### Whistle notifications
+**Chose:** each whistle has its own identifier (`io.github.kettle.whistle.<task ID>`). In overtime mode its actions are Done, Keep brewing +N and +M; otherwise just the two Keep brewing actions. When the schedule changes, a delivered whistle stays on screen while its task can still be reopened, and is removed otherwise. The open popover now reloads after any change from outside it (tick, notification, menubar menu).
+**Why:** a finished task's notification is still useful (Keep brewing), and with one shared identifier the next task's whistle could replace it.

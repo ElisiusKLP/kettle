@@ -78,12 +78,17 @@ struct TaskRow: View {
 
     @ViewBuilder
     private var menu: some View {
-        if state.isTimerDay, !task.isFinished, !isActive {
-            Button("Start") { state.start(task.id) }
+        ForEach(state.actions(for: task), id: \.self) { action in
+            switch action {
+            case .start: Button("Start") { state.start(task.id) }
+            case .pause: Button("Pause") { state.toggle() }
+            case .resume: Button("Resume") { state.toggle() }
+            case .done: Button("Done") { state.done(task.id) }
+            case .keepBrewing: Button("Keep brewing +\(state.settings.extendMinutes)m") { state.keepBrewing(task.id) }
+            case .skip: Button("Skip") { state.skip(task.id) }
+            }
         }
-        if !task.isFinished {
-            Button("Skip") { state.skip(task.id) }
-        }
+        Divider()
         Button("Delete", role: .destructive) { state.remove(task.id) }
     }
 }

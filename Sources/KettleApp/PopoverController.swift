@@ -10,6 +10,7 @@ final class PopoverController: NSObject, NSPopoverDelegate {
     private let onOpenSettings: () -> Void
     private let onOpenStats: () -> Void
     private var popover: NSPopover?
+    private var state: PopoverState?
 
     init(
         model: KettleModel,
@@ -36,6 +37,7 @@ final class PopoverController: NSObject, NSPopoverDelegate {
         popover.behavior = .transient
         popover.delegate = self
         let state = PopoverState(model: model, onChange: onChange)
+        self.state = state
         let content = NSHostingController(
             rootView: PopoverView(state: state, openSettings: onOpenSettings, openStats: onOpenStats)
         )
@@ -53,8 +55,14 @@ final class PopoverController: NSObject, NSPopoverDelegate {
         popover?.performClose(nil)
     }
 
+    /// Shows the model's current state, e.g. after the timer finished a task while open.
+    func reload() {
+        state?.reload()
+    }
+
     func popoverDidClose(_: Notification) {
         popover?.contentViewController = nil
         popover = nil
+        state = nil
     }
 }

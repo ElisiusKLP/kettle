@@ -35,7 +35,11 @@ private struct GeneralSettings: View {
                 value: $state.settings.resizeStepMinutes,
                 in: 1 ... 60
             )
-            Toggle("Start the next task automatically after Done", isOn: $state.settings.autoStartNext)
+            Picker("When time's up", selection: $state.settings.overtime) {
+                Text("Finish the task").tag(false)
+                Text("Keep brewing into overtime").tag(true)
+            }
+            Toggle("Start the next task automatically when one finishes", isOn: $state.settings.autoStartNext)
             Picker("Menubar shows", selection: $state.settings.menubarFormat) {
                 Text("Kettle only").tag(MenubarFormat.iconOnly)
                 Text("Kettle and time").tag(MenubarFormat.iconAndTime)

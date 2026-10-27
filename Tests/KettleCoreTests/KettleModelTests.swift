@@ -81,6 +81,31 @@ struct KettleModelTests {
         #expect(model.engine.activeTask?.extendedMinutes == 7)
     }
 
+    @Test func timeUpIsSavedWithTheSessionEndingAtZero() throws {
+        let store = makeStore()
+        let model = try makeModel(store)
+        model.add(QuickAddEntry(title: "Tea", minutes: 5, labelName: nil))
+        model.start()
+        clock.advance(by: 10)
+        #expect(model.finishIfTimeUp() == nil)
+        clock.advance(by: 300)
+        #expect(model.finishIfTimeUp()?.isLive == true)
+        try store.flush()
+        #expect(try store.loadSessions(monthOf: today).map(\.duration) == [300])
+        #expect(try makeModel().engine.plan.tasks.map(\.status) == [.done])
+    }
+
+    @Test func actionsFinishATaskWhoseTimeIsUpFirst() throws {
+        let model = try makeModel()
+        model.add(QuickAddEntry(title: "Tea", minutes: 5, labelName: nil))
+        model.start()
+        clock.advance(by: 400)
+        // Time ran out before the tick did: Keep brewing then reopens the finished task.
+        model.keepBrewing()
+        #expect(model.engine.activeTask?.title == "Tea")
+        #expect(model.engine.remainingSeconds(at: clock.now) == 600)
+    }
+
     @Test func settingsAreSavedAndReachTheTimer() throws {
         let store = makeStore()
         let model = try makeModel(store)

@@ -18,6 +18,7 @@ final class PopoverState {
     var quickAddError: String?
 
     @ObservationIgnored private let model: KettleModel
+    /// Called after every change. The app reloads this state in response.
     @ObservationIgnored private let onChange: () -> Void
     @ObservationIgnored let calendar = Calendar.autoupdatingCurrent
 
@@ -40,20 +41,18 @@ final class PopoverState {
 
     // These read the observed `plan` copy, not the model, so SwiftUI redraws when they change.
 
-    var activeTask: PlanTask? {
-        isTimerDay ? plan.tasks.first { $0.status == .brewing || $0.status == .paused } : nil
-    }
-
     var activeTaskID: UUID? {
-        activeTask?.id
+        isTimerDay ? plan.tasks.first { $0.status == .brewing || $0.status == .paused }?.id : nil
     }
 
-    var isBrewing: Bool {
-        activeTask?.status == .brewing
+    /// Which timer buttons apply on the timer's day.
+    var controls: TimerControls {
+        TimerControls(plan: plan, reopenableID: model.engine.reopenableID)
     }
 
-    var hasStartableTask: Bool {
-        isTimerDay && plan.tasks.contains { $0.status == .pending || $0.status == .paused }
+    /// The timer actions for a task's context menu.
+    func actions(for task: PlanTask) -> [TimerControls.TaskAction] {
+        TimerControls.actions(for: task, isTimerDay: isTimerDay, reopenableID: model.engine.reopenableID)
     }
 
     // MARK: Days
@@ -88,12 +87,14 @@ final class PopoverState {
         act { $0.toggle() }
     }
 
-    func done() {
-        act { $0.done() }
+    /// Finishes the active task, or marks `taskID` done.
+    func done(_ taskID: UUID? = nil) {
+        act { $0.done(taskID: taskID) }
     }
 
-    func keepBrewing() {
-        act { $0.keepBrewing() }
+    /// Keep brewing the brewing task, or `taskID` (which may have just finished).
+    func keepBrewing(_ taskID: UUID? = nil) {
+        act { $0.keepBrewing(taskID: taskID) }
     }
 
     func start(_ taskID: UUID) {
@@ -156,12 +157,12 @@ final class PopoverState {
         changed()
     }
 
+    /// Tells the app, which redraws the menubar and calls `reload()`.
     private func changed() {
-        reload()
         onChange()
     }
 
-    private func reload() {
+    func reload() {
         do {
             plan = try model.plan(for: date)
         } catch {

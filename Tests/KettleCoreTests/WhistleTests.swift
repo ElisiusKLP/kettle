@@ -61,6 +61,13 @@ struct WhistleTests {
         #expect(Whistle.playsSoundInApp(settings))
     }
 
+    @Test func doneIsOfferedOnlyInOvertimeMode() throws {
+        var settings = AppSettings()
+        #expect(try !#require(Whistle.request(engine: engine(), now: clock.now, settings: settings)).offersDone)
+        settings.overtime = true
+        #expect(try #require(Whistle.request(engine: engine(), now: clock.now, settings: settings)).offersDone)
+    }
+
     @Test func actionTitlesUseTheExtendAmounts() {
         var settings = AppSettings()
         settings.extendMinutes = 15

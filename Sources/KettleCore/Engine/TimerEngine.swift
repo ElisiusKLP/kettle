@@ -9,9 +9,25 @@ import Foundation
 public struct TimerEngine {
     /// Sessions shorter than this (e.g. an accidental start and pause) aren't recorded.
     public static let minimumSessionSeconds: TimeInterval = 1
+    /// How soon after the block runs out Kettle must notice for it to count as live: the
+    /// kettle then whistles and the next task may auto-start. Noticed later (asleep, quit),
+    /// the task finishes quietly.
+    public static let liveFinishWindow: TimeInterval = 60
+
+    /// What `finishIfTimeUp` did.
+    public struct TimeUp: Equatable {
+        public let taskID: UUID
+        /// The finished task's session, plus any closed by auto-starting the next task.
+        public let sessions: [Session]
+        /// True when it ran out within `liveFinishWindow` of now.
+        public let isLive: Bool
+    }
 
     public private(set) var plan: DayPlan
     public var settings: AppSettings
+    /// The task most recently finished with Done or by running out. Not stored: it only lets
+    /// Keep brewing reopen a task that just finished.
+    public private(set) var lastFinishedID: UUID?
 
     private let clock: Clock
     private let calendar: Calendar
@@ -37,6 +53,27 @@ public struct TimerEngine {
 
     public var isBrewing: Bool {
         activeTask?.status == .brewing
+    }
+
+    /// The last finished task, while it's still done, so Keep brewing can reopen it.
+    public var reopenableID: UUID? {
+        guard let lastFinishedID, plan.tasks.contains(where: { $0.id == lastFinishedID && $0.status == .done })
+        else { return nil }
+        return lastFinishedID
+    }
+
+    /// The task plain Keep brewing applies to: the brewing one or, when nothing is brewing or
+    /// paused, the task that just finished.
+    public var keepBrewingTarget: UUID? {
+        if let task = activeTask {
+            return task.status == .brewing ? task.id : nil
+        }
+        return reopenableID
+    }
+
+    /// Whether Keep brewing can apply to `taskID` (e.g. from its notification or context menu).
+    public func canKeepBrewing(_ taskID: UUID) -> Bool {
+        taskID == keepBrewingTarget || taskID == reopenableID
     }
 
     /// Seconds left in the active block at `now`; negative in overtime, nil when idle.
@@ -113,15 +150,43 @@ public struct TimerEngine {
     }
 
     /// Finishes the active task, then starts the next pending one if `autoStartNext` is on.
+    /// With the ID of a pending task, marks that task done without brewing it.
     @discardableResult
-    public mutating func done() -> [Session] {
+    public mutating func done(taskID: UUID? = nil) -> [Session] {
+        if let taskID, taskID != activeTask?.id {
+            guard let index = plan.tasks.firstIndex(where: { $0.id == taskID && $0.status == .pending }) else {
+                return []
+            }
+            plan.tasks[index].status = .done
+            return []
+        }
         guard let active = activeIndex else { return [] }
         var closed = closeSession(at: active, now: clock.now)
         plan.tasks[active].status = .done
+        lastFinishedID = plan.tasks[active].id
         if settings.autoStartNext {
             closed += start()
         }
         return closed
+    }
+
+    /// When the brewing block has run out and `overtime` is off, finishes it as of the moment
+    /// it ran out, so it counts exactly its planned time. If that was just now, the next task
+    /// starts when `autoStartNext` is on.
+    public mutating func finishIfTimeUp() -> TimeUp? {
+        guard !settings.overtime, let active = activeIndex, plan.tasks[active].status == .brewing else { return nil }
+        let now = clock.now
+        let remaining = plan.tasks[active].remainingSeconds(at: now)
+        guard remaining <= 0 else { return nil }
+        let taskID = plan.tasks[active].id
+        var closed = closeSession(at: active, now: now + remaining)
+        plan.tasks[active].status = .done
+        lastFinishedID = taskID
+        let isLive = -remaining <= Self.liveFinishWindow
+        if isLive, settings.autoStartNext {
+            closed += start()
+        }
+        return TimeUp(taskID: taskID, sessions: closed, isLive: isLive)
     }
 
     /// Marks `taskID` (or the active task) skipped. Time in the open session isn't counted.
@@ -140,12 +205,30 @@ public struct TimerEngine {
     /// Keep brewing: adds `minutes` to the brewing task, which shifts every later block. In
     /// overtime it first covers the whole minutes already overdue, so the block always runs
     /// for about `minutes` more from now.
-    public mutating func keepBrewing(minutes: Int) {
-        guard minutes > 0, let active = activeIndex, plan.tasks[active].status == .brewing else { return }
+    ///
+    /// `taskID` defaults to `keepBrewingTarget`. A task that just finished is reopened and
+    /// brews again (returning any other active task to pending), so it gets `minutes` more
+    /// from now.
+    @discardableResult
+    public mutating func keepBrewing(minutes: Int, taskID: UUID? = nil) -> [Session] {
+        guard minutes > 0, let taskID = taskID ?? keepBrewingTarget, canKeepBrewing(taskID) else { return [] }
+        var closed: [Session] = []
+        if taskID == reopenableID, let index = plan.tasks.firstIndex(where: { $0.id == taskID }) {
+            if let active = activeIndex {
+                closed += closeSession(at: active, now: clock.now)
+                plan.tasks[active].status = .pending
+            }
+            // Paused, so starting it resumes the block where it was.
+            plan.tasks[index].status = .paused
+            lastFinishedID = nil
+            closed += start(taskID: taskID)
+        }
+        guard let active = activeIndex, plan.tasks[active].status == .brewing else { return closed }
         let remaining = plan.tasks[active].remainingSeconds(at: clock.now)
         let overdueMinutes = remaining < 0 ? Int(-remaining / 60) : 0
         plan.tasks[active].extendedMinutes += minutes + overdueMinutes
         plan.tasks[active].sessionExtensionMinutes += minutes + overdueMinutes
+        return closed
     }
 
     /// Applies an edit from the popover (add, remove, reorder, resize). If the edit removes

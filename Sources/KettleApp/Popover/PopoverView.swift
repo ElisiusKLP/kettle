@@ -105,14 +105,15 @@ struct PopoverView: View {
     private var footer: some View {
         HStack(spacing: 8) {
             if state.isTimerDay {
-                Button(toggleTitle) { state.toggle() }
-                    .disabled(!state.hasStartableTask)
+                let controls = state.controls
+                Button(Self.title(controls.toggle)) { state.toggle() }
+                    .disabled(controls.toggle == nil)
                 Button("Done") { state.done() }
                     .keyboardShortcut(.return, modifiers: .command)
-                    .disabled(state.activeTaskID == nil)
+                    .disabled(!controls.hasActiveTask)
                 Button("Keep brewing +\(state.settings.extendMinutes)m") { state.keepBrewing() }
                     .keyboardShortcut("e", modifiers: .command)
-                    .disabled(!state.isBrewing)
+                    .disabled(controls.keepBrewingTaskID == nil)
                 Spacer()
                 if state.yesterdayUnfinished > 0 {
                     Button("Carry over \(state.yesterdayUnfinished)") { state.carryOver() }
@@ -137,11 +138,12 @@ struct PopoverView: View {
         .padding(.vertical, 8)
     }
 
-    private var toggleTitle: String {
-        if state.isBrewing {
-            return "Pause"
+    static func title(_ toggle: TimerControls.Toggle?) -> String {
+        switch toggle {
+        case .pause: "Pause"
+        case .resume: "Resume"
+        case .start, nil: "Start"
         }
-        return state.activeTaskID == nil ? "Start" : "Resume"
     }
 
     /// Shortcuts without a visible button.

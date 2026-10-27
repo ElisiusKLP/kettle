@@ -8,6 +8,9 @@ public struct WhistleRequest: Equatable, Sendable {
     public let title: String
     public let body: String
     public let playsSound: Bool
+    /// In overtime mode the task keeps brewing, so the notification offers Done. Otherwise the
+    /// task has already finished and only Keep brewing applies.
+    public let offersDone: Bool
 }
 
 public enum Whistle {
@@ -22,7 +25,8 @@ public enum Whistle {
             fireDate: fireDate,
             title: "Whistle!",
             body: "\u{201C}\(task.title)\u{201D} is done.",
-            playsSound: settings.whistleSound
+            playsSound: settings.whistleSound,
+            offersDone: settings.overtime
         )
     }
 

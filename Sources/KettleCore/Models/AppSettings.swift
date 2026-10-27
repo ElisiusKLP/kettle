@@ -43,6 +43,9 @@ public struct AppSettings: StoredDocument, Hashable {
     /// Minutes added or removed by a task's duration stepper.
     public var resizeStepMinutes = 5
     public var autoStartNext = false
+    /// When time's up: false finishes the task (the default), true keeps brewing into overtime
+    /// until Done.
+    public var overtime = false
     public var menubarFormat = MenubarFormat.iconAndTime
     public var timerPrecision = TimerPrecision.smart
     public var whistleSound = true
@@ -53,7 +56,8 @@ public struct AppSettings: StoredDocument, Hashable {
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case extendMinutes, secondaryExtendMinutes, resizeStepMinutes, autoStartNext, menubarFormat, timerPrecision
+        case extendMinutes, secondaryExtendMinutes, resizeStepMinutes, autoStartNext, overtime, menubarFormat,
+             timerPrecision
         case whistleSound, notifyOnFinish, launchAtLogin, weekStartsOn
     }
 
@@ -67,6 +71,7 @@ public struct AppSettings: StoredDocument, Hashable {
         secondaryExtendMinutes = value(.secondaryExtendMinutes, default: defaults.secondaryExtendMinutes)
         resizeStepMinutes = max(1, value(.resizeStepMinutes, default: defaults.resizeStepMinutes))
         autoStartNext = value(.autoStartNext, default: defaults.autoStartNext)
+        overtime = value(.overtime, default: defaults.overtime)
         menubarFormat = value(.menubarFormat, default: defaults.menubarFormat)
         timerPrecision = value(.timerPrecision, default: defaults.timerPrecision)
         whistleSound = value(.whistleSound, default: defaults.whistleSound)
